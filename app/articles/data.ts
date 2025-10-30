@@ -1,77 +1,167 @@
 // app/articles/data.ts
-
 export type Article = {
   slug: string;
   title: string;
   excerpt: string;
-  updatedAt: string; // ISO
+  category: 'Fever' | 'Feeding' | 'Sleep' | 'Respiratory';
   author: string;
-  content: {
-    hero?: string;
-    sections: Array<{ h2: string; paras: string[]; bullets?: string[] }>;
-    faq: Array<{ q: string; a: string }>;
-    sources?: string[];
-  };
+  updated: string; // ISO date string
+  sections: { heading: string; paragraphs: string[] }[];
+  faqs: { q: string; a: string }[];
+  resources: { label: string; url: string }[];
 };
 
 export const articles: Article[] = [
   {
-    slug: "starting-solids-6-9-months",
-    title: "Starting Solids (6–9 months)",
+    slug: 'fever-basics-0-12m',
+    title: 'Fever Basics (0–12 months)',
     excerpt:
-      "How to safely introduce solids, what to expect by age, common concerns, and when to call your doctor.",
-    updatedAt: "2025-09-30",
-    author: "BabyQ Editorial",
-    content: {
-      hero: "A gentle, safety-first guide to your baby’s first bites.",
-      sections: [
-        {
-          h2: "What to expect by age",
-          paras: [
-            "Between 6–7 months, most babies are ready to explore purees or soft, mashed textures.",
-            "By 8–9 months, finger foods and self-feeding skills improve, but supervision remains crucial."
-          ],
-          bullets: [
-            "Signs of readiness: good head control, sitting with support, interest in food.",
-            "Offer iron-rich options early (meat, legumes, fortified cereals)."
-          ]
-        },
-        {
-          h2: "Common concerns",
-          paras: [
-            "Gagging is common when learning textures; choking is silent and requires immediate action.",
-            "Introduce one new food at a time to notice reactions."
-          ],
-          bullets: ["Avoid honey before 12 months.", "Cut round foods into small, soft pieces."]
-        },
-        {
-          h2: "When to contact a doctor",
-          paras: [
-            "If there is trouble breathing, swelling of lips/face, repetitive vomiting, or hives spreading—seek urgent care."
-          ]
-        },
-        {
-          h2: "Quick tips",
-          paras: ["Keep meals calm, short, and baby-led."],
-          bullets: [
-            "Sit upright; no feeding in car seat.",
-            "Never leave baby unattended.",
-            "Water is limited; breastmilk/formula remains primary."
-          ]
-        },
-        {
-          h2: "Sources",
-          paras: [],
-          bullets: [
-            "AAP HealthyChildren.org",
-            "WHO complementary feeding guidance"
-          ]
-        }
-      ],
-      faq: [
-        { q: "How many meals per day?", a: "Start with 1, then 2, then 3 by 8–9 months if interested." },
-        { q: "Allergy introduction?", a: "Peanut/egg early in tiny amounts if no contraindication; monitor closely." }
-      ]
-    }
+      'How to understand baby fever, what to watch for, and when to seek medical care.',
+    category: 'Fever',
+    author: 'BabyQ Editorial',
+    updated: '2025-10-20',
+    sections: [
+      {
+        heading: 'What to Expect by Age',
+        paragraphs: [
+          'Newborns (<3 months) with a measured fever ≥38°C (100.4°F) should be evaluated promptly.',
+          'From 3–12 months, mild fever can accompany common viral illnesses; behavior and hydration matter most.'
+        ]
+      },
+      {
+        heading: 'Common Concerns',
+        paragraphs: [
+          'Thermometer method influences accuracy (rectal is most reliable in infants).',
+          'Fever alone is not an illness; it is a sign. Focus on breathing, hydration, responsiveness.'
+        ]
+      },
+      {
+        heading: 'When to See a Doctor',
+        paragraphs: [
+          'Any infant <3 months with ≥38°C.',
+          'Any age with breathing difficulty, bluish lips/face, persistent vomiting, seizure, or unresponsiveness.'
+        ]
+      },
+      {
+        heading: 'Quick Tips',
+        paragraphs: [
+          'Dress lightly; keep room cool and ventilated.',
+          'Offer fluids frequently; monitor diapers and alertness.',
+          'Avoid cold baths or alcohol rubs.'
+        ]
+      },
+      {
+        heading: 'Safety Note',
+        paragraphs: [
+          'This article is general guidance and not a diagnosis. Follow local medical advice.'
+        ]
+      }
+    ],
+    faqs: [
+      { q: 'Is teething causing fever?', a: 'Teething may cause slight warmth or irritability, but persistent ≥38°C fever suggests another cause.' },
+      { q: 'Which thermometer is best?', a: 'Rectal thermometers are most accurate for infants; follow device instructions strictly.' },
+      { q: 'How long can fever last?', a: 'Viral fevers often improve in 2–3 days, but watch overall condition and hydration.' },
+      { q: 'What if baby refuses fluids?', a: 'Offer small, frequent sips. If refusal persists or dehydration signs appear, seek care.' }
+    ],
+    resources: [
+      { label: 'WHO: Child Health Basics', url: 'https://www.who.int/' },
+      { label: 'AAP: Fever in Children', url: 'https://www.aap.org/' }
+    ]
+  },
+  {
+    slug: 'starting-solids-6m',
+    title: 'Starting Solids Around 6 Months',
+    excerpt:
+      'Readiness signs, textures, and safety tips for introducing solids.',
+    category: 'Feeding',
+    author: 'BabyQ Editorial',
+    updated: '2025-10-20',
+    sections: [
+      {
+        heading: 'Readiness Signs',
+        paragraphs: [
+          'Good head control, sits with support, shows interest in food, and can move food to the back of the mouth.'
+        ]
+      },
+      {
+        heading: 'Textures & Progression',
+        paragraphs: [
+          'Begin with smooth purees; gradually move to mashed and soft finger foods as skills develop.'
+        ]
+      },
+      {
+        heading: 'Allergens',
+        paragraphs: [
+          'Introduce common allergens one by one; watch for reactions. Discuss with your clinician if you have concerns.'
+        ]
+      },
+      {
+        heading: 'Quick Tips',
+        paragraphs: [
+          'One new food at a time; small portions; never force-feed.',
+          'Keep mealtimes calm; sit upright and supervised.'
+        ]
+      }
+    ],
+    faqs: [
+      { q: 'Water with meals?', a: 'Small sips are fine when solids start, but milk/appropriate formula remains primary nutrition.' },
+      { q: 'Choking vs gagging?', a: 'Gagging is common as skills develop; choking is silent and dangerous—learn basic first aid.' },
+      { q: 'Iron-rich foods?', a: 'Offer iron-fortified cereals, lentils, and meats as age-appropriate.' },
+      { q: 'How often?', a: 'Start once a day and build up as interest and tolerance grow.' }
+    ],
+    resources: [
+      { label: 'WHO: Complementary Feeding', url: 'https://www.who.int/' },
+      { label: 'NHS: Weaning', url: 'https://www.nhs.uk/' }
+    ]
+  },
+  {
+    slug: 'sleep-0-6m-guide',
+    title: 'Sleep Guide (0–6 months)',
+    excerpt:
+      'Normal patterns, soothing strategies, and safe-sleep reminders.',
+    category: 'Sleep',
+    author: 'BabyQ Editorial',
+    updated: '2025-10-20',
+    sections: [
+      {
+        heading: 'Normal Patterns',
+        paragraphs: [
+          'Newborns sleep in short stretches; circadian rhythm matures gradually.',
+          'Day–night confusion is common early on.'
+        ]
+      },
+      {
+        heading: 'Soothing Strategies',
+        paragraphs: [
+          'White noise, swaddling (age-appropriate), and consistent routines can help.',
+          'Respond to hunger cues and safe comforting.'
+        ]
+      },
+      {
+        heading: 'Safe Sleep',
+        paragraphs: [
+          'Back to sleep on a firm, flat surface. Keep sleep area free of soft objects.',
+          'Avoid overheating; maintain smoke-free environment.'
+        ]
+      },
+      {
+        heading: 'When to Seek Help',
+        paragraphs: [
+          'Breathing difficulty, pauses, or color changes require evaluation.',
+          'If persistent sleep issues affect growth or feeding, consult your clinician.'
+        ]
+      }
+    ],
+    faqs: [
+      { q: 'How long should naps be?', a: 'Varies widely; focus on total daily sleep and baby’s overall mood and feeding.' },
+      { q: 'Is co-sleeping safe?', a: 'Follow local guidance; many authorities advise room-sharing without bed-sharing for safety.' },
+      { q: 'Can I use swaddles?', a: 'Use age-appropriate swaddles and stop once rolling begins.' },
+      { q: 'Best bedtime routine?', a: 'Simple, consistent steps: feed, change, dim lights, calm voice, and safe sleep environment.' }
+    ],
+    resources: [
+      { label: 'AAP: Safe Sleep', url: 'https://www.aap.org/' },
+      { label: 'NHS: Baby Sleep', url: 'https://www.nhs.uk/' }
+    ]
   }
 ];
+
