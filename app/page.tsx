@@ -13,7 +13,7 @@ type ApiResp = {
     llmError?: string | null;
     matchedFaqs?: number;
     urgent?: boolean;
-    provider?: string; // e.g., "gemini"
+    provider?: string; // e.g. "gemini"
   };
   error?: string;
   detail?: string;
@@ -28,6 +28,15 @@ const badgeFor = (src?: 'AI' | 'FAQ' | 'FALLBACK', provider?: string) => {
   return { emoji: '🛟', label: 'Source: Fallback' };
 };
 
+function monthsBetween(birthISO: string) {
+  if (!birthISO) return 0;
+  const b = new Date(birthISO);
+  const now = new Date();
+  let m = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
+  if (now.getDate() < b.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+
 export default function Home() {
   const [age, setAge] = useState<string>('7');
   const [question, setQuestion] = useState<string>('Fever 38.2°C; what should I do?');
@@ -36,39 +45,35 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any>(null);
   const [copied, setCopied] = useState(false);
-
   const answerRef = useRef<HTMLDivElement | null>(null);
 
-  // Profile → yaş (ay) otomatik doldur (localStorage)
+  // Profile'dan yaş (ay) otomatik doldur (localStorage)
   useEffect(() => {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
       if (!raw) return;
       const p = JSON.parse(raw) as { birth_date?: string };
       if (!p?.birth_date) return;
-
-      const monthsBetween = (birthISO: string) => {
-        const b = new Date(birthISO);
-        const now = new Date();
-        let m =
-          (now.getFullYear() - b.getFullYear()) * 12 +
-          (now.getMonth() - b.getMonth());
-        if (now.getDate() < b.getDate()) m -= 1;
-        return Math.max(0, m);
-      };
-
       setAge(String(monthsBetween(p.birth_date)));
     } catch {}
   }, []);
 
-  // URL parametreleri (opsiyonel debug)
+  // URL parametreleri
   const showDebug = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).has('debug');
   }, []);
+
   const providerQuery = useMemo(() => {
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('v') || '';
+  }, []);
+
+  // Kaynaklar default gizli; yalnızca ?debug veya ?sources varsa göster
+  const showSources = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const sp = new URLSearchParams(window.location.search);
+    return sp.has('debug') || sp.has('sources');
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -96,7 +101,7 @@ export default function Home() {
       if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
 
-      // Yanıt çıktıktan sonra answer alanına smooth scroll
+      // Yanıt alanına smooth scroll
       setTimeout(() => {
         answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
@@ -301,15 +306,15 @@ export default function Home() {
               </div>
             )}
 
-            {/* Candidates */}
-            {resp.candidates?.length ? (
+            {/* Sources (default hidden; only with ?debug or ?sources) */}
+            {showSources && resp.candidates?.length ? (
               <details style={{ marginTop: 16 }}>
                 <summary>Show sources ({resp.candidates.length})</summary>
                 <ul style={{ marginTop: 8 }}>
                   {resp.candidates.map((c: any, i: number) => (
                     <li key={c.id || i} style={{ marginBottom: 8 }}>
                       <div style={{ fontWeight: 600 }}>
-                        {c.category} • {c.age_min}-{c.age_max} months
+                        {(c.category || 'General')} • {c.age_min}-{c.age_max} months
                       </div>
                       <div style={{ opacity: 0.8 }}>{c.question}</div>
                     </li>
@@ -319,7 +324,7 @@ export default function Home() {
             ) : null}
           </div>
 
-          {/* Debug (optional via ?debug=1) */}
+          {/* Debug (optional via ?debug) */}
           {showDebug && (
             <>
               <details style={{ marginTop: 12 }}>
