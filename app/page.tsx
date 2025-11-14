@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type ApiResp = {
   answer?: string;
@@ -13,10 +13,18 @@ type ApiResp = {
     llmError?: string | null;
     matchedFaqs?: number;
     urgent?: boolean;
-    provider?: string; // e.g., "gemini"
+    provider?: string; // e.g. "gemini"
   };
   error?: string;
   detail?: string;
+};
+
+type HistoryItem = {
+  ts: number;
+  ageMonths: number;
+  sex: 'unknown' | 'female' | 'male';
+  question: string;
+  meta?: ApiResp['meta'];
 };
 
 const cleanAnswer = (s: string) =>
@@ -37,14 +45,30 @@ function monthsBetween(birthISO: string) {
   return Math.max(0, m);
 }
 
-/** ---------- Quick concern presets ---------- */
-const CONCERN_PRESETS = [
-  'Fever 38°C; what should I do?',
-  'Persistent cough; what should I check?',
-  'Rash on face and body; is it serious?',
-  'Not eating well; what can I try?',
-  'Vomiting/diarrhea; what should I watch for?',
-];
+function loadHistory(): HistoryItem[] {
+  try {
+    const raw = localStorage.getItem('babyq_history_v1');
+    return raw ? (JSON.parse(raw) as HistoryItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(arr: HistoryItem[]) {
+  try {
+    localStorage.setItem('babyq_history_v1', JSON.stringify(arr.slice(0, 100)));
+  } catch {}
+}
+
+function fmtWhen(ts: number) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+  return d.toLocaleString();
+}
 
 export default function Home() {
   const [age, setAge] = useState<string>('7');
@@ -55,17 +79,29 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // History modal
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
   const answerRef = useRef<HTMLDivElement | null>(null);
 
-  // Profile'dan yaş (ay) otomatik doldur (localStorage)
+  // Profile'dan yaş (ay) ve cinsiyet otomatik doldur (localStorage)
   useEffect(() => {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
-      if (!raw) return;
-      const p = JSON.parse(raw) as { birth_date?: string; sex?: 'female' | 'male' };
-      if (p?.birth_date) setAge(String(monthsBetween(p.birth_date)));
-      if (p?.sex) setSex(p.sex);
+      if (raw) {
+        const p = JSON.parse(raw) as { birth_date?: string; sex?: 'female' | 'male' | 'unknown' };
+        if (p?.birth_date) setAge(String(monthsBetween(p.birth_date)));
+        if (p?.sex) setSex(p.sex);
+      }
     } catch {}
+  }, []);
+
+  // İlk yüklemede history çek
+  useEffect(() => {
+    setHistory(loadHistory());
   }, []);
 
   // URL parametreleri
@@ -86,50 +122,17 @@ export default function Home() {
     return sp.has('debug') || sp.has('sources');
   }, []);
 
-  // Rich-text benzeri okunaklı render
-  function renderRich(text: string): React.ReactNode {
-    const lines = (text || '').split('\n');
-    const blocks: React.ReactNode[] = [];
-    let buffer: string[] = [];
-    let list: string[] = [];
+  // Preset chip’ler (EN)
+  const presets = ['Fever', 'Cough', 'Rash', 'Vomiting', 'Diarrhea', 'Constipation', 'Sleep issue'];
 
-    const flushPara = () => {
-      if (buffer.length) {
-        blocks.push(<p key={`p-${blocks.length}`} style={{ margin: '8px 0' }}>{buffer.join(' ')}</p>);
-        buffer = [];
-      }
-    };
-    const flushList = () => {
-      if (list.length) {
-        blocks.push(
-          <ul key={`ul-${blocks.length}`} style={{ margin: '6px 0 8px 18px' }}>
-            {list.map((it, i) => <li key={i}>{it}</li>)}
-          </ul>
-        );
-        list = [];
-      }
-    };
-
-    for (const ln of lines) {
-      const trimmed = ln.trim();
-      if (!trimmed) {
-        flushPara(); flushList();
-        continue;
-      }
-      // "• " veya "- " ile başlayan satırları madde olarak düşün
-      if (/^[•\-]\s+/.test(trimmed)) {
-        flushPara();
-        list.push(trimmed.replace(/^[•\-]\s+/, ''));
-      } else {
-        flushList();
-        buffer.push(trimmed);
-      }
-    }
-    flushPara(); flushList();
-    return blocks;
+  function addPreset(p: string) {
+    setQuestion((q) => {
+      if (!q.trim()) return p;
+      if (q.toLowerCase().includes(p.toLowerCase())) return q;
+      return `${q.trim()} — ${p}`;
+    });
   }
 
-  // Form submit
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -139,8 +142,8 @@ export default function Home() {
 
     const payload = {
       ageMonths: Number(age || 0),
+      sex, // ileride backend için hazır
       question: question.trim(),
-      sex,
     };
     setLastPayload(payload);
 
@@ -156,6 +159,20 @@ export default function Home() {
       if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
 
+      // History kaydı
+      const arr = loadHistory();
+      arr.unshift({
+        ts: Date.now(),
+        ageMonths: Number(age || 0),
+        sex,
+        question: question.trim(),
+        meta: j.meta,
+      });
+      saveHistory(arr);
+      setHistory(arr);
+      setToast('Saved to history');
+      setTimeout(() => setToast(null), 1400);
+
       // Yanıt alanına smooth scroll
       setTimeout(() => {
         answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -169,27 +186,70 @@ export default function Home() {
 
   const srcBadge = badgeFor(resp?.meta?.source as any, resp?.meta?.provider);
 
-  // Quick concern chip'ine tıklandığında metni başa ekle
-  const insertPreset = (text: string) => {
-    setQuestion((prev) => (prev?.trim() ? `${text}\n${prev}` : text));
-  };
-
   return (
     <main style={{ maxWidth: 720, margin: '40px auto', padding: 16, color: '#111' }}>
-      <header style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0 }}>Ask BabyQ</h1>
-        <p style={{ opacity: 0.8, marginTop: 6 }}>
-          Short, parent-friendly answers. Not medical advice.
-        </p>
-        <div style={{ marginTop: 6 }}>
-          <a
-            href="/profile"
-            style={{ fontSize: 13, color: '#111', textDecoration: 'underline' }}
-            title="View your previous questions"
-          >
-            View my questions (History)
-          </a>
+      {/* Inline CSS */}
+      <style>{`
+        @keyframes babyq-spin { to { transform: rotate(360deg); } }
+        .overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+          display: flex; align-items: center; justify-content: center; z-index: 60;
+        }
+        .modal {
+          background: #FFFCF3; color:#111; border:1px solid #E6E1D9; border-radius:16px;
+          width: min(720px, 92vw); max-height: 80vh; overflow: auto; padding: 16px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        }
+        .chip { padding: 6px 10px; font-size: 12px; border-radius: 999px;
+          border: 1px solid #E6E1D9; background: #FFFCF3; color: #111; cursor: pointer; }
+        .btn {
+          padding: 10px 12px; border-radius: 10px; border:1px solid #DDD; background:#FAF7F0; color:#111; cursor:pointer;
+        }
+        .btn.black { background:#111; color:#FAF7F0; border-color:#111; }
+        .btn.ghost { background:#FFFCF3; border-color:#E6E1D9; }
+        .btn.small { padding: 6px 10px; font-size: 12px; }
+      `}</style>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#111',
+            color: '#FAF7F0',
+            padding: '8px 12px',
+            borderRadius: 999,
+            boxShadow: '0 4px 18px rgba(0,0,0,0.15)',
+            fontSize: 13,
+            zIndex: 50,
+          }}
+        >
+          {toast}
         </div>
+      )}
+
+      {/* Header + History button */}
+      <header style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0 }}>Ask BabyQ</h1>
+          <p style={{ opacity: 0.8, marginTop: 6 }}>Short, parent-friendly answers. Not medical advice.</p>
+        </div>
+
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setHistoryOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={historyOpen}
+          aria-controls="history-modal"
+          title="Show recent questions"
+        >
+          🕘 History
+        </button>
       </header>
 
       {/* Status banners */}
@@ -226,6 +286,7 @@ export default function Home() {
 
       {/* Form */}
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+        {/* Age */}
         <label htmlFor="age" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Baby’s age (months) 👶</span>
           <input
@@ -251,7 +312,7 @@ export default function Home() {
           />
         </label>
 
-        {/* Baby’s sex */}
+        {/* Sex */}
         <label htmlFor="sex" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Baby’s sex 🏷️</span>
           <select
@@ -276,29 +337,16 @@ export default function Home() {
           </select>
         </label>
 
-        {/* Quick concerns */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {CONCERN_PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => insertPreset(p)}
-              title="Insert quick concern"
-              style={{
-                padding: '6px 10px',
-                borderRadius: 999,
-                border: '1px solid #DDD',
-                background: '#FAF7F0',
-                color: '#111',
-                cursor: 'pointer',
-                fontSize: 12,
-              }}
-            >
+        {/* Preset chips */}
+        <div aria-label="quick concerns" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {presets.map((p) => (
+            <button key={p} type="button" onClick={() => addPreset(p)} className="chip">
               {p}
             </button>
           ))}
         </div>
 
+        {/* Question */}
         <label htmlFor="q" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>What’s your concern? ❓</span>
           <textarea
@@ -323,20 +371,33 @@ export default function Home() {
           />
         </label>
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={loading || !question.trim()}
           aria-disabled={loading || !question.trim()}
+          className="btn black"
           style={{
-            padding: '14px 16px',
-            background: loading ? '#666' : '#111',
-            color: '#FAF7F0',
-            borderRadius: 12,
-            border: 0,
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            justifyContent: 'center',
           }}
         >
+          {loading && (
+            <span
+              aria-hidden="true"
+              style={{
+                width: 14,
+                height: 14,
+                border: '2px solid #FAF7F0',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                display: 'inline-block',
+                animation: 'babyq-spin 0.8s linear infinite',
+              }}
+            />
+          )}
           {loading ? 'Preparing answer…' : 'Get answer'}
         </button>
       </form>
@@ -394,16 +455,8 @@ export default function Home() {
                     setTimeout(() => setCopied(false), 1500);
                   } catch {}
                 }}
-                style={{
-                  marginLeft: 'auto',
-                  padding: '6px 10px',
-                  borderRadius: 999,
-                  border: '1px solid #DDD',
-                  background: '#FAF7F0',
-                  color: '#111',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                }}
+                className="btn small"
+                style={{ marginLeft: 'auto' }}
               >
                 {copied ? '✅ Copied' : 'Copy answer'}
               </button>
@@ -412,7 +465,9 @@ export default function Home() {
             <h3 style={{ fontSize: 22, fontWeight: 800, marginTop: 12, marginBottom: 6 }}>
               Answer
             </h3>
-            <div style={{ marginTop: 4 }}>{renderRich(cleanAnswer(resp.answer || ''))}</div>
+            <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
+              {cleanAnswer(resp.answer || '')}
+            </div>
 
             {/* Disclaimer */}
             {resp?.disclaimer && (
@@ -424,7 +479,7 @@ export default function Home() {
             {/* Sources (default hidden; only with ?debug or ?sources) */}
             {showSources && resp.candidates?.length ? (
               <details style={{ marginTop: 16 }}>
-                <summary>References ({resp.candidates.length})</summary>
+                <summary>Show sources ({resp.candidates.length})</summary>
                 <ul style={{ marginTop: 8 }}>
                   {resp.candidates.map((c: any, i: number) => (
                     <li key={c.id || i} style={{ marginBottom: 8 }}>
@@ -457,6 +512,126 @@ export default function Home() {
             </>
           )}
         </section>
+      )}
+
+      {/* History Modal */}
+      {historyOpen && (
+        <div className="overlay" onClick={() => setHistoryOpen(false)} aria-hidden>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-title"
+            id="history-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <h2 id="history-title" style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>
+                Recent questions
+              </h2>
+              <button
+                className="btn ghost small"
+                onClick={() => {
+                  const arr = loadHistory();
+                  setHistory(arr);
+                }}
+                title="Refresh list"
+                style={{ marginLeft: 'auto' }}
+              >
+                Refresh
+              </button>
+              <button
+                className="btn ghost small"
+                onClick={() => {
+                  saveHistory([]);
+                  setHistory([]);
+                }}
+                title="Clear all history"
+              >
+                Clear all
+              </button>
+              <button className="btn small" onClick={() => setHistoryOpen(false)} title="Close">
+                Close
+              </button>
+            </div>
+
+            {history.length === 0 ? (
+              <div style={{ padding: 8, opacity: 0.7 }}>No items yet.</div>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+                {history.map((h, idx) => (
+                  <li
+                    key={h.ts + '-' + idx}
+                    style={{
+                      border: '1px solid #E6E1D9',
+                      background: '#FFF',
+                      borderRadius: 12,
+                      padding: 12,
+                      display: 'grid',
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <strong style={{ fontSize: 14 }}>
+                        {h.ageMonths} mo · {h.sex === 'unknown' ? '—' : h.sex}
+                      </strong>
+                      <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.7 }}>
+                        {fmtWhen(h.ts)}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 14, opacity: 0.95 }}>{h.question}</div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                      <button
+                        className="btn small black"
+                        onClick={() => {
+                          setAge(String(h.ageMonths));
+                          setSex(h.sex);
+                          setQuestion(h.question);
+                          setHistoryOpen(false);
+                          // odak soruya
+                          setTimeout(() => {
+                            const el = document.getElementById('q');
+                            el?.focus();
+                          }, 50);
+                        }}
+                        title="Use this question"
+                      >
+                        Use this
+                      </button>
+                      <button
+                        className="btn small"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(h.question);
+                            setToast('Question copied');
+                            setTimeout(() => setToast(null), 1200);
+                          } catch {}
+                        }}
+                        title="Copy question"
+                      >
+                        Copy
+                      </button>
+                      <span
+                        style={{
+                          marginLeft: 'auto',
+                          fontSize: 12,
+                          opacity: 0.75,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                        title="Answer source at the time"
+                      >
+                        {h.meta?.source === 'AI' ? '🤖 AI' : h.meta?.source === 'FAQ' ? '📚 FAQ' : '🛟 Fallback'}
+                        {h.meta?.provider ? `· ${h.meta.provider}` : ''}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );
