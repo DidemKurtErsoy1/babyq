@@ -39,6 +39,7 @@ function monthsBetween(birthISO: string) {
 
 export default function Home() {
   const [age, setAge] = useState<string>('7');
+  const [sex, setSex] = useState<'female' | 'male' | 'unknown'>('unknown');
   const [question, setQuestion] = useState<string>('Fever 38.2°C; what should I do?');
   const [loading, setLoading] = useState(false);
   const [resp, setResp] = useState<ApiResp | null>(null);
@@ -47,7 +48,7 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const answerRef = useRef<HTMLDivElement | null>(null);
 
-  // Profile'dan yaş (ay) otomatik doldur (localStorage)
+  // Profile → age auto-fill
   useEffect(() => {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
@@ -58,7 +59,7 @@ export default function Home() {
     } catch {}
   }, []);
 
-  // URL parametreleri
+  // URL params
   const showDebug = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).has('debug');
@@ -69,14 +70,14 @@ export default function Home() {
     return new URLSearchParams(window.location.search).get('v') || '';
   }, []);
 
-  // Kaynaklar default gizli; yalnızca ?debug veya ?sources varsa göster
+  // Sources panel only when ?debug or ?sources
   const showSources = useMemo(() => {
     if (typeof window === 'undefined') return false;
     const sp = new URLSearchParams(window.location.search);
     return sp.has('debug') || sp.has('sources');
   }, []);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -86,6 +87,7 @@ export default function Home() {
     const payload = {
       ageMonths: Number(age || 0),
       question: question.trim(),
+      sex, // şimdilik backend kullanmasa da ilerisi için gönderiyoruz
     };
     setLastPayload(payload);
 
@@ -101,7 +103,7 @@ export default function Home() {
       if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
 
-      // Yanıt alanına smooth scroll
+      // scroll to answer
       setTimeout(() => {
         answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
@@ -157,6 +159,7 @@ export default function Home() {
 
       {/* Form */}
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+        {/* Age */}
         <label htmlFor="age" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Baby’s age (months) 👶</span>
           <input
@@ -182,6 +185,32 @@ export default function Home() {
           />
         </label>
 
+        {/* Sex */}
+        <label htmlFor="sex" style={{ display: 'grid', gap: 6 }}>
+          <span style={{ fontWeight: 600 }}>Baby’s sex 🏷️</span>
+          <select
+            id="sex"
+            value={sex}
+            onChange={(e) => setSex(e.target.value as 'female' | 'male' | 'unknown')}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: 12,
+              border: '1px solid #DDD',
+              background: '#FAF7F0',
+              color: '#111',
+              outline: 'none',
+            }}
+            onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 2px #111')}
+            onBlur={(e) => (e.currentTarget.style.boxShadow = 'none')}
+          >
+            <option value="unknown">Prefer not to say</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+          </select>
+        </label>
+
+        {/* Question */}
         <label htmlFor="q" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>What’s your concern? ❓</span>
           <textarea
@@ -262,7 +291,7 @@ export default function Home() {
                   fontSize: 12,
                   padding: '4px 8px',
                   borderRadius: 999,
-                  background: '#FFF4DB', // soft amber
+                  background: '#FFF4DB',
                   border: '1px solid #F3E2B6',
                 }}
               >
@@ -306,7 +335,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Sources (default hidden; only with ?debug or ?sources) */}
+            {/* Sources (hidden unless ?debug or ?sources) */}
             {showSources && resp.candidates?.length ? (
               <details style={{ marginTop: 16 }}>
                 <summary>Show sources ({resp.candidates.length})</summary>
@@ -324,7 +353,7 @@ export default function Home() {
             ) : null}
           </div>
 
-          {/* Debug (optional via ?debug) */}
+          {/* Debug (optional) */}
           {showDebug && (
             <>
               <details style={{ marginTop: 12 }}>
