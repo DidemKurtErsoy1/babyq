@@ -1,8 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 type ApiResp = {
   answer?: string;
@@ -15,7 +14,6 @@ type ApiResp = {
     matchedFaqs?: number;
     urgent?: boolean;
     provider?: string; // e.g. "gemini"
-    language?: 'tr' | 'en';
   };
   error?: string;
   detail?: string;
@@ -39,102 +37,101 @@ function monthsBetween(birthISO: string) {
   return Math.max(0, m);
 }
 
-// very light markdown-ish: turn lines starting with "- " or "• " into <li>
-function renderRich(text: string) {
+/** Basit rich-text renderer: boş satırlar paragraf, "•"/"- " ile başlayanlar liste. */
+function renderRich(text: string): React.ReactNode {
   const lines = (text || '').split('\n');
-  const blocks: JSX.Element[] = [];
+  const blocks: React.ReactNode[] = [];
   let buffer: string[] = [];
   let list: string[] = [];
 
   const flushP = () => {
     if (buffer.length) {
-      blocks.push(<p key={'p-' + blocks.length} style={{ margin: '8px 0' }}>{buffer.join(' ')}</p>);
+      blocks.push(
+        <p key={`p-${blocks.length}`} style={{ margin: '6px 0' }}>
+          {buffer.join(' ')}
+        </p>
+      );
       buffer = [];
     }
   };
+
   const flushList = () => {
     if (list.length) {
       blocks.push(
-        <ul key={'ul-' + blocks.length} style={{ margin: '8px 0 8px 18px' }}>
-          {list.map((li, i) => <li key={i} style={{ lineHeight: 1.5 }}>{li}</li>)}
+        <ul
+          key={`ul-${blocks.length}`}
+          style={{ marginTop: 8, marginBottom: 6, paddingLeft: 18 }}
+        >
+          {list.map((li, i) => (
+            <li key={i} style={{ margin: '4px 0' }}>
+              {li}
+            </li>
+          ))}
         </ul>
       );
       list = [];
     }
   };
 
-  for (const raw of lines) {
-    const l = raw.trim();
-    if (!l) {
-      flushP(); flushList();
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushP();
+      flushList();
       continue;
     }
-    if (l.startsWith('- ') || l.startsWith('• ')) {
+    if (trimmed.startsWith('•') || trimmed.startsWith('- ')) {
       flushP();
-      list.push(l.replace(/^[-•]\s*/, ''));
+      list.push(trimmed.replace(/^[-•]\s?/, '').trim());
     } else {
       flushList();
-      buffer.push(l);
+      buffer.push(trimmed);
     }
   }
-  flushP(); flushList();
-  return blocks;
+  flushP();
+  flushList();
+  return <>{blocks}</>;
 }
 
 export default function Home() {
   const [age, setAge] = useState<string>('7');
-  const [gender, setGender] = useState<'female'|'male'|'unknown'>('unknown');
+  const [sex, setSex] = useState<'female' | 'male' | 'unknown'>('unknown');
   const [question, setQuestion] = useState<string>('Fever 38.2°C; what should I do?');
   const [loading, setLoading] = useState(false);
   const [resp, setResp] = useState<ApiResp | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any>(null);
   const [copied, setCopied] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-
-  const [needsProfile, setNeedsProfile] = useState(false);
-
   const answerRef = useRef<HTMLDivElement | null>(null);
 
-  // Profile → yaş (ay) otomatik
+  // Profile'dan yaş (ay) otomatik doldur (localStorage)
   useEffect(() => {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
-      if (!raw) { setNeedsProfile(true); return; }
+      if (!raw) return;
       const p = JSON.parse(raw) as { birth_date?: string };
-      if (!p?.birth_date) { setNeedsProfile(true); return; }
+      if (!p?.birth_date) return;
       setAge(String(monthsBetween(p.birth_date)));
-      setNeedsProfile(false);
-    } catch { setNeedsProfile(true); }
+    } catch {}
   }, []);
 
-  // URL params
+  // URL parametreleri
   const showDebug = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).has('debug');
   }, []);
+
   const providerQuery = useMemo(() => {
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('v') || '';
   }, []);
+
+  // Kaynaklar default gizli; yalnızca ?debug veya ?sources varsa göster
   const showSources = useMemo(() => {
     if (typeof window === 'undefined') return false;
     const sp = new URLSearchParams(window.location.search);
     return sp.has('debug') || sp.has('sources');
   }, []);
-
-  const concernChips = [
-    'Fever 38.0°C', 'Cough & wheeze', 'Rash', 'Not eating', 'Vomiting', 'Diarrhea'
-  ];
-
-  async function uploadImageIfAny(): Promise<string> {
-    if (!imageFile) return '';
-    try {
-      // Basit bir upload endpoint’in varsa buraya POST edebilirsin.
-      // Şimdilik sadece local URL oluşturup API’ye boş bırakıyoruz.
-      return '';
-    } catch { return ''; }
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -143,12 +140,10 @@ export default function Home() {
     setResp(null);
     setCopied(false);
 
-    const imageUrl = await uploadImageIfAny();
     const payload = {
       ageMonths: Number(age || 0),
+      sex,
       question: question.trim(),
-      gender,
-      imageUrl
     };
     setLastPayload(payload);
 
@@ -164,6 +159,7 @@ export default function Home() {
       if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
 
+      // Yanıt alanına smooth scroll
       setTimeout(() => {
         answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
@@ -184,23 +180,6 @@ export default function Home() {
           Short, parent-friendly answers. Not medical advice.
         </p>
       </header>
-
-      {/* Profile CTA */}
-      {needsProfile && (
-        <div
-          role="note"
-          style={{
-            marginBottom: 16,
-            padding: 12,
-            border: '1px solid #E6E1D9',
-            background: '#FFFCF3',
-            borderRadius: 12
-          }}
-        >
-          👶 To get more accurate guidance, please{' '}
-          <a href="/profile" style={{ textDecoration: 'underline' }}>create your profile</a>.
-        </div>
-      )}
 
       {/* Status banners */}
       {error && (
@@ -236,6 +215,7 @@ export default function Home() {
 
       {/* Form */}
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+        {/* Age */}
         <label htmlFor="age" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Baby’s age (months) 👶</span>
           <input
@@ -261,16 +241,21 @@ export default function Home() {
           />
         </label>
 
-        {/* Gender */}
+        {/* Sex (optional) */}
         <label htmlFor="sex" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Baby’s sex 🏷️</span>
           <select
             id="sex"
-            value={gender}
-            onChange={(e) => setGender(e.target.value as any)}
+            value={sex}
+            onChange={(e) => setSex(e.target.value as 'female' | 'male' | 'unknown')}
             style={{
-              width: '100%', padding: '12px 14px', borderRadius: 12,
-              border: '1px solid #DDD', background: '#FAF7F0', color: '#111', outline: 'none'
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: 12,
+              border: '1px solid #DDD',
+              background: '#FAF7F0',
+              color: '#111',
+              outline: 'none',
             }}
             onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 2px #111')}
             onBlur={(e) => (e.currentTarget.style.boxShadow = 'none')}
@@ -281,28 +266,7 @@ export default function Home() {
           </select>
         </label>
 
-        {/* Concern chips */}
-        <div aria-label="quick concern chips" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {concernChips.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setQuestion(c)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: 999,
-                border: '1px solid #DDD',
-                background: '#FFF4DB',
-                cursor: 'pointer',
-                fontSize: 12
-              }}
-              title={`Use template: ${c}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
+        {/* Question */}
         <label htmlFor="q" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>What’s your concern? ❓</span>
           <textarea
@@ -324,18 +288,6 @@ export default function Home() {
             onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 2px #111')}
             onBlur={(e) => (e.currentTarget.style.boxShadow = 'none')}
             required
-          />
-        </label>
-
-        {/* Image upload (MVP placeholder) */}
-        <label htmlFor="img" style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontWeight: 600 }}>Attach an image (optional)</span>
-          <input
-            id="img"
-            type="file"
-            accept="image/png,image/jpeg"
-            onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
-            style={{ background: '#FAF7F0', padding: 8, borderRadius: 12, border: '1px solid #DDD' }}
           />
         </label>
 
@@ -372,10 +324,8 @@ export default function Home() {
                 borderRadius: 12,
               }}
             >
-              <strong>{resp.meta?.language === 'tr' ? 'ACİL:' : 'URGENT:'}</strong>{' '}
-              {resp.meta?.language === 'tr'
-                ? 'Olası acil durum. 112’yi arayın veya en yakın sağlık kuruluşuna başvurun.'
-                : 'Possible emergency. Call your local emergency number or visit the nearest healthcare facility.'}
+              <strong>URGENT:</strong> Possible emergency. Call your local emergency number
+              or visit the nearest healthcare facility.
             </div>
           ) : null}
 
@@ -392,17 +342,16 @@ export default function Home() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span
                 aria-label="answer source"
-                title={badgeFor(resp?.meta?.source as any, resp?.meta?.provider).label}
+                title={srcBadge.label}
                 style={{
                   fontSize: 12,
                   padding: '4px 8px',
                   borderRadius: 999,
-                  background: '#FFF4DB',
+                  background: '#FFF4DB', // soft amber
                   border: '1px solid #F3E2B6',
                 }}
               >
-                {badgeFor(resp?.meta?.source as any, resp?.meta?.provider).emoji}{' '}
-                {badgeFor(resp?.meta?.source as any, resp?.meta?.provider).label}
+                {srcBadge.emoji} {srcBadge.label}
               </span>
 
               <button
@@ -429,10 +378,9 @@ export default function Home() {
             </div>
 
             <h3 style={{ fontSize: 22, fontWeight: 800, marginTop: 12, marginBottom: 6 }}>
-              {resp.meta?.language === 'tr' ? 'Yanıt' : 'Answer'}
+              Answer
             </h3>
-
-            <div style={{ marginTop: 4, lineHeight: 1.55 }}>
+            <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
               {renderRich(cleanAnswer(resp.answer || ''))}
             </div>
 
@@ -443,7 +391,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* References (show only with ?debug or ?sources) */}
+            {/* Sources (default hidden; only with ?debug or ?sources) */}
             {showSources && resp.candidates?.length ? (
               <details style={{ marginTop: 16 }}>
                 <summary>References ({resp.candidates.length})</summary>
@@ -451,8 +399,7 @@ export default function Home() {
                   {resp.candidates.map((c: any, i: number) => (
                     <li key={c.id || i} style={{ marginBottom: 8 }}>
                       <div style={{ fontWeight: 600 }}>
-                        {(c.category || 'General')} • {c.age_min}-{c.age_max}{' '}
-                        {resp.meta?.language === 'tr' ? 'ay' : 'months'}
+                        {(c.category || 'General')} • {c.age_min}-{c.age_max} months
                       </div>
                       <div style={{ opacity: 0.8 }}>{c.question}</div>
                     </li>
@@ -462,7 +409,7 @@ export default function Home() {
             ) : null}
           </div>
 
-          {/* Debug */}
+          {/* Debug (optional via ?debug) */}
           {showDebug && (
             <>
               <details style={{ marginTop: 12 }}>
