@@ -19,6 +19,14 @@ type ApiResp = {
   detail?: string;
 };
 
+type HistoryItem = {
+  ts: number;
+  ageMonths: number;
+  sex: 'unknown' | 'female' | 'male';
+  question: string;
+  meta?: ApiResp['meta'];
+};
+
 const cleanAnswer = (s: string) =>
   (s || '').replace(/^🔹 AI\n|^🔸 FAQ\n|^🔺 Fallback\n/, '');
 
@@ -46,20 +54,22 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
   const answerRef = useRef<HTMLDivElement | null>(null);
 
-  // Profile → age auto-fill
+  // Profile'dan yaş (ay) ve cinsiyet otomatik doldur (localStorage)
   useEffect(() => {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
       if (!raw) return;
-      const p = JSON.parse(raw) as { birth_date?: string };
-      if (!p?.birth_date) return;
-      setAge(String(monthsBetween(p.birth_date)));
+      const p = JSON.parse(raw) as { birth_date?: string; sex?: 'female' | 'male' | 'unknown' };
+      if (p?.birth_date) setAge(String(monthsBetween(p.birth_date)));
+      if (p?.sex) setSex(p.sex);
     } catch {}
   }, []);
 
-  // URL params
+  // URL parametreleri
   const showDebug = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).has('debug');
@@ -70,14 +80,34 @@ export default function Home() {
     return new URLSearchParams(window.location.search).get('v') || '';
   }, []);
 
-  // Sources panel only when ?debug or ?sources
+  // Kaynaklar default gizli; yalnızca ?debug veya ?sources varsa göster
   const showSources = useMemo(() => {
     if (typeof window === 'undefined') return false;
     const sp = new URLSearchParams(window.location.search);
     return sp.has('debug') || sp.has('sources');
   }, []);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  // Preset chip’ler (EN)
+  const presets = [
+    'Fever',
+    'Cough',
+    'Rash',
+    'Vomiting',
+    'Diarrhea',
+    'Constipation',
+    'Sleep issue',
+  ];
+
+  function addPreset(p: string) {
+    setQuestion((q) => {
+      if (!q.trim()) return p;
+      // Aynı kelime iki kez eklenmesin (basit kontrol)
+      if (q.toLowerCase().includes(p.toLowerCase())) return q;
+      return `${q.trim()} — ${p}`;
+    });
+  }
+
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -86,8 +116,8 @@ export default function Home() {
 
     const payload = {
       ageMonths: Number(age || 0),
+      sex, // ileride backend için hazır
       question: question.trim(),
-      sex, // şimdilik backend kullanmasa da ilerisi için gönderiyoruz
     };
     setLastPayload(payload);
 
@@ -103,7 +133,24 @@ export default function Home() {
       if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
 
-      // scroll to answer
+      // History kaydı
+      try {
+        const raw = localStorage.getItem('babyq_history_v1');
+        const arr: HistoryItem[] = raw ? JSON.parse(raw) : [];
+        arr.unshift({
+          ts: Date.now(),
+          ageMonths: Number(age || 0),
+          sex,
+          question: question.trim(),
+          meta: j.meta,
+        });
+        // 100 kayıtla sınırla
+        localStorage.setItem('babyq_history_v1', JSON.stringify(arr.slice(0, 100)));
+        setToast('Saved to history');
+        setTimeout(() => setToast(null), 1400);
+      } catch {}
+
+      // Yanıt çıktıktan sonra answer alanına smooth scroll
       setTimeout(() => {
         answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
@@ -118,6 +165,33 @@ export default function Home() {
 
   return (
     <main style={{ maxWidth: 720, margin: '40px auto', padding: 16, color: '#111' }}>
+      {/* Küçük inline CSS: spinner */}
+      <style>{`
+        @keyframes babyq-spin { to { transform: rotate(360deg); } }
+      `}</style>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#111',
+            color: '#FAF7F0',
+            padding: '8px 12px',
+            borderRadius: 999,
+            boxShadow: '0 4px 18px rgba(0,0,0,0.15)',
+            fontSize: 13,
+            zIndex: 50,
+          }}
+        >
+          {toast}
+        </div>
+      )}
+
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0 }}>Ask BabyQ</h1>
         <p style={{ opacity: 0.8, marginTop: 6 }}>
@@ -191,7 +265,7 @@ export default function Home() {
           <select
             id="sex"
             value={sex}
-            onChange={(e) => setSex(e.target.value as 'female' | 'male' | 'unknown')}
+            onChange={(e) => setSex(e.target.value as any)}
             style={{
               width: '100%',
               padding: '12px 14px',
@@ -209,6 +283,28 @@ export default function Home() {
             <option value="male">Male</option>
           </select>
         </label>
+
+        {/* Preset chips */}
+        <div aria-label="quick concerns" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {presets.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => addPreset(p)}
+              style={{
+                padding: '6px 10px',
+                fontSize: 12,
+                borderRadius: 999,
+                border: '1px solid #E6E1D9',
+                background: '#FFFCF3',
+                color: '#111',
+                cursor: 'pointer',
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
 
         {/* Question */}
         <label htmlFor="q" style={{ display: 'grid', gap: 6 }}>
@@ -235,6 +331,7 @@ export default function Home() {
           />
         </label>
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={loading || !question.trim()}
@@ -247,8 +344,26 @@ export default function Home() {
             border: 0,
             cursor: loading ? 'not-allowed' : 'pointer',
             fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            justifyContent: 'center',
           }}
         >
+          {loading && (
+            <span
+              aria-hidden="true"
+              style={{
+                width: 14,
+                height: 14,
+                border: '2px solid #FAF7F0',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                display: 'inline-block',
+                animation: 'babyq-spin 0.8s linear infinite',
+              }}
+            />
+          )}
           {loading ? 'Preparing answer…' : 'Get answer'}
         </button>
       </form>
@@ -291,7 +406,7 @@ export default function Home() {
                   fontSize: 12,
                   padding: '4px 8px',
                   borderRadius: 999,
-                  background: '#FFF4DB',
+                  background: '#FFF4DB', // soft amber
                   border: '1px solid #F3E2B6',
                 }}
               >
@@ -335,7 +450,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Sources (hidden unless ?debug or ?sources) */}
+            {/* Sources (default hidden; only with ?debug or ?sources) */}
             {showSources && resp.candidates?.length ? (
               <details style={{ marginTop: 16 }}>
                 <summary>Show sources ({resp.candidates.length})</summary>
@@ -353,7 +468,7 @@ export default function Home() {
             ) : null}
           </div>
 
-          {/* Debug (optional) */}
+          {/* Debug (optional via ?debug) */}
           {showDebug && (
             <>
               <details style={{ marginTop: 12 }}>
