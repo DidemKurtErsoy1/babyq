@@ -13,7 +13,7 @@ type ApiResp = {
     llmError?: string | null;
     matchedFaqs?: number;
     urgent?: boolean;
-    provider?: string; // e.g. "gemini"
+    provider?: string; // e.g., "gemini"
   };
   error?: string;
   detail?: string;
@@ -37,61 +37,14 @@ function monthsBetween(birthISO: string) {
   return Math.max(0, m);
 }
 
-/** Basit rich-text renderer: boş satırlar paragraf, "•"/"- " ile başlayanlar liste. */
-function renderRich(text: string): React.ReactNode {
-  const lines = (text || '').split('\n');
-  const blocks: React.ReactNode[] = [];
-  let buffer: string[] = [];
-  let list: string[] = [];
-
-  const flushP = () => {
-    if (buffer.length) {
-      blocks.push(
-        <p key={`p-${blocks.length}`} style={{ margin: '6px 0' }}>
-          {buffer.join(' ')}
-        </p>
-      );
-      buffer = [];
-    }
-  };
-
-  const flushList = () => {
-    if (list.length) {
-      blocks.push(
-        <ul
-          key={`ul-${blocks.length}`}
-          style={{ marginTop: 8, marginBottom: 6, paddingLeft: 18 }}
-        >
-          {list.map((li, i) => (
-            <li key={i} style={{ margin: '4px 0' }}>
-              {li}
-            </li>
-          ))}
-        </ul>
-      );
-      list = [];
-    }
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      flushP();
-      flushList();
-      continue;
-    }
-    if (trimmed.startsWith('•') || trimmed.startsWith('- ')) {
-      flushP();
-      list.push(trimmed.replace(/^[-•]\s?/, '').trim());
-    } else {
-      flushList();
-      buffer.push(trimmed);
-    }
-  }
-  flushP();
-  flushList();
-  return <>{blocks}</>;
-}
+/** ---------- Quick concern presets ---------- */
+const CONCERN_PRESETS = [
+  'Fever 38°C; what should I do?',
+  'Persistent cough; what should I check?',
+  'Rash on face and body; is it serious?',
+  'Not eating well; what can I try?',
+  'Vomiting/diarrhea; what should I watch for?',
+];
 
 export default function Home() {
   const [age, setAge] = useState<string>('7');
@@ -109,9 +62,9 @@ export default function Home() {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
       if (!raw) return;
-      const p = JSON.parse(raw) as { birth_date?: string };
-      if (!p?.birth_date) return;
-      setAge(String(monthsBetween(p.birth_date)));
+      const p = JSON.parse(raw) as { birth_date?: string; sex?: 'female' | 'male' };
+      if (p?.birth_date) setAge(String(monthsBetween(p.birth_date)));
+      if (p?.sex) setSex(p.sex);
     } catch {}
   }, []);
 
@@ -133,6 +86,50 @@ export default function Home() {
     return sp.has('debug') || sp.has('sources');
   }, []);
 
+  // Rich-text benzeri okunaklı render
+  function renderRich(text: string): React.ReactNode {
+    const lines = (text || '').split('\n');
+    const blocks: React.ReactNode[] = [];
+    let buffer: string[] = [];
+    let list: string[] = [];
+
+    const flushPara = () => {
+      if (buffer.length) {
+        blocks.push(<p key={`p-${blocks.length}`} style={{ margin: '8px 0' }}>{buffer.join(' ')}</p>);
+        buffer = [];
+      }
+    };
+    const flushList = () => {
+      if (list.length) {
+        blocks.push(
+          <ul key={`ul-${blocks.length}`} style={{ margin: '6px 0 8px 18px' }}>
+            {list.map((it, i) => <li key={i}>{it}</li>)}
+          </ul>
+        );
+        list = [];
+      }
+    };
+
+    for (const ln of lines) {
+      const trimmed = ln.trim();
+      if (!trimmed) {
+        flushPara(); flushList();
+        continue;
+      }
+      // "• " veya "- " ile başlayan satırları madde olarak düşün
+      if (/^[•\-]\s+/.test(trimmed)) {
+        flushPara();
+        list.push(trimmed.replace(/^[•\-]\s+/, ''));
+      } else {
+        flushList();
+        buffer.push(trimmed);
+      }
+    }
+    flushPara(); flushList();
+    return blocks;
+  }
+
+  // Form submit
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -142,8 +139,8 @@ export default function Home() {
 
     const payload = {
       ageMonths: Number(age || 0),
-      sex,
       question: question.trim(),
+      sex,
     };
     setLastPayload(payload);
 
@@ -172,6 +169,11 @@ export default function Home() {
 
   const srcBadge = badgeFor(resp?.meta?.source as any, resp?.meta?.provider);
 
+  // Quick concern chip'ine tıklandığında metni başa ekle
+  const insertPreset = (text: string) => {
+    setQuestion((prev) => (prev?.trim() ? `${text}\n${prev}` : text));
+  };
+
   return (
     <main style={{ maxWidth: 720, margin: '40px auto', padding: 16, color: '#111' }}>
       <header style={{ marginBottom: 16 }}>
@@ -179,6 +181,15 @@ export default function Home() {
         <p style={{ opacity: 0.8, marginTop: 6 }}>
           Short, parent-friendly answers. Not medical advice.
         </p>
+        <div style={{ marginTop: 6 }}>
+          <a
+            href="/profile"
+            style={{ fontSize: 13, color: '#111', textDecoration: 'underline' }}
+            title="View your previous questions"
+          >
+            View my questions (History)
+          </a>
+        </div>
       </header>
 
       {/* Status banners */}
@@ -215,7 +226,6 @@ export default function Home() {
 
       {/* Form */}
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
-        {/* Age */}
         <label htmlFor="age" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Baby’s age (months) 👶</span>
           <input
@@ -241,13 +251,13 @@ export default function Home() {
           />
         </label>
 
-        {/* Sex (optional) */}
+        {/* Baby’s sex */}
         <label htmlFor="sex" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Baby’s sex 🏷️</span>
           <select
             id="sex"
             value={sex}
-            onChange={(e) => setSex(e.target.value as 'female' | 'male' | 'unknown')}
+            onChange={(e) => setSex(e.target.value as any)}
             style={{
               width: '100%',
               padding: '12px 14px',
@@ -266,7 +276,29 @@ export default function Home() {
           </select>
         </label>
 
-        {/* Question */}
+        {/* Quick concerns */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {CONCERN_PRESETS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => insertPreset(p)}
+              title="Insert quick concern"
+              style={{
+                padding: '6px 10px',
+                borderRadius: 999,
+                border: '1px solid #DDD',
+                background: '#FAF7F0',
+                color: '#111',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
         <label htmlFor="q" style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>What’s your concern? ❓</span>
           <textarea
@@ -380,9 +412,7 @@ export default function Home() {
             <h3 style={{ fontSize: 22, fontWeight: 800, marginTop: 12, marginBottom: 6 }}>
               Answer
             </h3>
-            <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
-              {renderRich(cleanAnswer(resp.answer || ''))}
-            </div>
+            <div style={{ marginTop: 4 }}>{renderRich(cleanAnswer(resp.answer || ''))}</div>
 
             {/* Disclaimer */}
             {resp?.disclaimer && (
@@ -431,4 +461,3 @@ export default function Home() {
     </main>
   );
 }
-
