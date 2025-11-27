@@ -6,15 +6,13 @@ import { useI18n } from '@/lib/useI18n';
 
 import type { User } from '@supabase/supabase-js';
 
+
 type Profile = { baby_name: string; birth_date: string };
 type Question = {
   id: string;
   created_at: string;
   child_age_months: number | null;
-  gender?: string | null;
-  source?: string | null;
-  text?: string | null;
-  extras?: { lang?: string; references?: any[] } | null;
+
 };
 
 const LS_KEY = 'babyq_profile_v1';
@@ -31,19 +29,7 @@ function monthsBetween(birthISO: string) {
 function formatDate(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
-function displayGender(g: string | null | undefined, lang: 'en' | 'tr') {
-  if (g === 'female') return lang === 'tr' ? 'Kız' : 'Female';
-  if (g === 'male') return lang === 'tr' ? 'Erkek' : 'Male';
-  return '—';
 }
 
 export default function ProfilePage() {
@@ -56,10 +42,7 @@ export default function ProfilePage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profileExists, setProfileExists] = useState(false);
-  const [checkingProfile, setCheckingProfile] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+
 
   useEffect(() => {
     try {
@@ -151,6 +134,29 @@ export default function ProfilePage() {
 
   const ageMonths = useMemo(() => monthsBetween(birthDate), [birthDate]);
 
+  useEffect(() => {
+    async function load() {
+      if (!supabase) {
+        setError('Supabase yapılandırması eksik.');
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      const { data, error } = await supabase
+        .from('questions')
+        .select('id, created_at, child_age_months, source, extras')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) {
+        setError('Sorular yüklenemedi.');
+      } else {
+        setQuestions(data || []);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [supabase]);
+
   function onSave(e: React.FormEvent) {
     e.preventDefault();
     const p: Profile = { baby_name: babyName.trim(), birth_date: birthDate };
@@ -177,27 +183,7 @@ export default function ProfilePage() {
 
   return (
     <main style={{ maxWidth: 900, margin: '24px auto', padding: 16 }}>
-      {toast && (
-        <div
-          role="status"
-          style={{
-            position: 'fixed',
-            top: 12,
-            right: 12,
-            padding: '10px 12px',
-            background: '#111',
-            color: '#fff',
-            borderRadius: 12,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
-            zIndex: 50,
-          }}
-        >
-          {toast}
-        </div>
-      )}
 
-      <h1 style={{ fontSize: 28, fontWeight: 800 }}>{t('profileTitle')}</h1>
-      <p style={{ opacity: 0.75, marginTop: 6 }}>
         Enter your baby’s info. <strong>Age (months)</strong> will auto-fill on the Ask page.
       </p>
 
@@ -238,39 +224,7 @@ export default function ProfilePage() {
       </form>
 
       <section style={{ marginTop: 32 }}>
-        {user && !profileExists && !checkingProfile ? (
-          <div
-            style={{
-              marginBottom: 16,
-              border: '1px solid #E5E7EB',
-              borderRadius: 12,
-              padding: 14,
-              background: '#F9FAFB',
-            }}
-          >
-            <h2 style={{ fontSize: 20, fontWeight: 700 }}>{t('createProfileTitle')}</h2>
-            <p style={{ opacity: 0.85, marginTop: 4 }}>{t('createProfileDesc')}</p>
-            <button
-              type="button"
-              onClick={handleCreateProfile}
-              disabled={checkingProfile}
-              style={{
-                marginTop: 8,
-                padding: '10px 12px',
-                borderRadius: 10,
-                background: '#111',
-                color: '#fff',
-                border: 0,
-                cursor: 'pointer',
-              }}
-            >
-              {checkingProfile ? '…' : t('createProfileCta')}
-            </button>
-          </div>
-        ) : null}
 
-        <h2 style={{ fontSize: 22, fontWeight: 700 }}>{t('profileTitle')}</h2>
-        <p style={{ opacity: 0.75, marginTop: 6 }}>Latest questions saved to Supabase.</p>
 
         {!supabase && (
           <div style={{ marginTop: 12, color: '#b91c1c' }}>
@@ -278,53 +232,18 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {supabase && !user && (
-          <div style={{ marginTop: 12, opacity: 0.85 }}>{t('loginPrompt')}</div>
-        )}
 
-        {loading && <div style={{ marginTop: 12 }}>{t('loadingQuestions')}</div>}
-        {error && <div style={{ marginTop: 12, color: '#b91c1c' }}>{error}</div>}
-
-        {user && !loading && !error && questions.length > 0 && (
-          <div style={{ marginTop: 12, border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1.6fr 0.8fr 0.7fr 0.7fr 1.6fr',
-                padding: '10px 12px',
-                background: '#F9FAFB',
-                fontWeight: 600,
-              }}
-            >
-              <div>Date</div>
-              <div>{t('ageMonthsLabel')}</div>
-              <div>{t('genderLabel')}</div>
-              <div>{t('sourceLabel')}</div>
-              <div>{t('questionPreview')}</div>
             </div>
             {questions.map((q) => (
               <div
                 key={q.id}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1.6fr 0.8fr 0.7fr 0.7fr 1.6fr',
-                  padding: '10px 12px',
-                  borderTop: '1px solid #E5E7EB',
-                  alignItems: 'center',
-                }}
-              >
-                <div>{formatDate(q.created_at)}</div>
-                <div>{q.child_age_months ?? '—'}</div>
-                <div>{displayGender(q.gender, lang)}</div>
-                <div>{q.source || 'Ask form'}</div>
-                <div style={{ opacity: 0.9 }}>{q.text ? `${q.text.slice(0, 80)}${q.text.length > 80 ? '…' : ''}` : '—'}</div>
+
               </div>
             ))}
           </div>
         )}
 
-        {user && !loading && !error && questions.length === 0 && (
-          <div style={{ marginTop: 12, opacity: 0.75 }}>{t('noQuestions')}</div>
+
         )}
       </section>
     </main>
