@@ -35,14 +35,20 @@ function cut(s: string, max = 400) {
 
 function detectLangFromText(q: string): Lang {
   const s = (q || '').toLowerCase();
-  const override = s.match(/[çğıöşü]/) || /merhaba|ateş|öksür|ishal|kusma|bebek|ay/.test(s);
-  return override ? 'tr' : 'en';
+  const hasTrSignal =
+    s.match(/[çğıöşü]/) || /merhaba|ateş|öksür|ishal|kusma|bebek|ay/.test(s);
+  return hasTrSignal ? 'tr' : 'en';
 }
 
-function getLang(req: Request, question: string): Lang {
+function detectLang(req: Request, question: string): Lang {
   const url = new URL(req.url);
-  const ov = url.searchParams.get('lang');
-  if (ov === 'tr' || ov === 'en') return ov;
+  const qp = url.searchParams.get('lang');
+  if (qp === 'tr' || qp === 'en') return qp;
+
+  const acceptLang = (req.headers.get('accept-language') || '').toLowerCase();
+  if (/\btr\b/.test(acceptLang)) return 'tr';
+  if (/\ben\b/.test(acceptLang)) return 'en';
+
   return detectLangFromText(question);
 }
 
@@ -145,22 +151,22 @@ function systemPrompt(lang: Lang) {
   if (lang === 'tr') {
     return (
       'Bir pediatri asistanısın. Tanı koyma, ilaç/doz verme.\n' +
-      'Cevabı TAMAMEN TÜRKÇE ver. Sakin, kısa, ebeveyn dostu bir ton.\n' +
+      'Cevabı tamamen TÜRKÇE tut; İngilizce karıştırma. Ton: sakin, kısa, ebeveyn dostu.\n' +
       'Biçim:\n' +
       '• 1 kısa özet cümle.\n' +
       '• 3 madde uygulanabilir öneri.\n' +
       '• 1 madde: "Ne zaman doktora başvurmalı?".\n' +
-      'Sadece açık kırmızı bayrak varsa ( <3 ay + ≥38°C, ciddi solunum sıkıntısı, morarma, bilinç değişikliği ) başta **ACİL** uyarı ekle. Gereksiz acil uyarı verme. Toplam ≤ 90 kelime.'
+      'Açık bir kırmızı bayrak yoksa **ACİL** uyarısı yazma. Sadece şu durumlarda en başa **ACİL** ekle: <3 ay + ≥38°C, belirgin solunum sıkıntısı, morarma, bilinç değişikliği. Toplam ≤ 90 kelime.'
     );
   }
   return (
     'You are a pediatric assistant. Do NOT diagnose or prescribe medications/doses.\n' +
-    'Answer ONLY in ENGLISH. Tone: calm, concise, parent-friendly.\n' +
+    'Answer strictly in ENGLISH—no Turkish words. Tone: calm, concise, parent-friendly.\n' +
     'Structure:\n' +
     '• One short summary sentence.\n' +
     '• Three bullet actionable tips.\n' +
     '• One bullet: "When to see a doctor?".\n' +
-    'Add an **URGENT** warning first ONLY if clear red flags exist (<3 months + ≥38°C, significant breathing difficulty, cyanosis, altered consciousness). Do not over-warn. Keep total ≤ 90 words.'
+    'Place an **URGENT** notice first only when clear red flags exist (<3 months + ≥38°C, significant breathing difficulty, cyanosis, altered consciousness). Avoid default urgency. Keep total ≤ 90 words.'
   );
 }
 
@@ -194,8 +200,8 @@ async function askGeminiSmart(
 
   const user =
     (lang === 'tr'
-      ? `Bebek yaşı (ay): ${ageMonths}\n`
-      : `Baby age (months): ${ageMonths}\n`) +
+      ? `Bebek yaşı (ay): ${ageMonths}\nDil: Türkçe yanıtla (tamamen).\n`
+      : `Baby age (months): ${ageMonths}\nLanguage: Respond purely in English.\n`) +
     (gender && gender !== 'unknown'
       ? (lang === 'tr' ? `Cinsiyet: ${gender === 'female' ? 'kız' : 'erkek'}\n` : `Gender: ${gender}\n`)
       : '') +
@@ -264,7 +270,7 @@ export async function POST(req: Request) {
     if (Number.isNaN(ageMonths) || ageMonths < 0) ageMonths = 0;
 
     // Language (meta + behavior)
-    const lang: Lang = getLang(req, question);
+    const lang: Lang = detectLang(req, question);
 
     // Very short question → ask for details (localized)
     if (question.trim().length < 12) {
