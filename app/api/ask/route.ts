@@ -35,14 +35,12 @@ function cut(s: string, max = 400) {
 
 function detectLangFromText(q: string): Lang {
   const s = (q || '').toLowerCase();
-  const override = s.match(/[çğıöşü]/) || /merhaba|ateş|öksür|ishal|kusma|bebek|ay/.test(s);
-  return override ? 'tr' : 'en';
+  const hasTrSignal =
+    s.match(/[çğıöşü]/) || /merhaba|ateş|öksür|ishal|kusma|bebek|ay/.test(s);
+  return hasTrSignal ? 'tr' : 'en';
 }
 
-function getLang(req: Request, question: string): Lang {
-  const url = new URL(req.url);
-  const ov = url.searchParams.get('lang');
-  if (ov === 'tr' || ov === 'en') return ov;
+function detectLang(_req: Request, question: string): Lang {
   return detectLangFromText(question);
 }
 
@@ -106,9 +104,58 @@ function extractKeywords(q: string) {
 }
 
 function supabaseServer() {
-  const url = process.env.SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  try {
+    return createClient(url, key, { auth: { persistSession: false } });
+  } catch (err) {
+    console.error('Supabase server client init failed', err);
+    return null;
+  }
+}
+
+async function getUserIdFromAuthHeader(authHeader?: string | null) {
+  if (!authHeader) return null;
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+  const supa = supabaseServer();
+  if (!supa) return null;
+  try {
+    const { data } = await supa.auth.getUser(token);
+    return data.user?.id ?? null;
+  } catch (err) {
+    console.warn('Auth token validation failed', err);
+    return null;
+  }
+}
+
+async function saveQuestionRecord(params: {
+  userId: string | null;
+  ageMonths: number;
+  question: string;
+  gender?: 'female' | 'male' | 'unknown' | null;
+  imageUrl?: string;
+  lang: Lang;
+  source: 'AI' | 'FAQ' | 'FALLBACK';
+  urgent: boolean;
+  references: { id: string; question: string; category: string | null; age_min: number; age_max: number }[];
+}) {
+  const supa = supabaseServer();
+  if (!supa) return;
+  try {
+    await supa.from('questions').insert({
+      user_id: params.userId,
+      child_age_months: params.ageMonths,
+      text: params.question,
+      gender: params.gender ?? null,
+      image_url: params.imageUrl || null,
+      source: params.source,
+      extras: { lang: params.lang, references: params.references, urgent: params.urgent },
+    } as any);
+  } catch (err) {
+    console.warn('Question save skipped', err);
+  }
 }
 
 /** ------------ Gemini (short, resilient) ------------ */
@@ -143,25 +190,21 @@ async function geminiGenerate(prompt: string) {
 
 function systemPrompt(lang: Lang) {
   if (lang === 'tr') {
-    return (
-      'Bir pediatri asistanısın. Tanı koyma, ilaç/doz verme.\n' +
-      'Cevabı TAMAMEN TÜRKÇE ver. Sakin, kısa, ebeveyn dostu bir ton.\n' +
-      'Biçim:\n' +
-      '• 1 kısa özet cümle.\n' +
-      '• 3 madde uygulanabilir öneri.\n' +
-      '• 1 madde: "Ne zaman doktora başvurmalı?".\n' +
-      'Sadece açık kırmızı bayrak varsa ( <3 ay + ≥38°C, ciddi solunum sıkıntısı, morarma, bilinç değişikliği ) başta **ACİL** uyarı ekle. Gereksiz acil uyarı verme. Toplam ≤ 90 kelime.'
-    );
+    return `Bir pediatri asistanısın. Tanı koyma, ilaç/doz verme.
+Cevabı tamamen TÜRKÇE tut; İngilizce karıştırma. Ton: sakin, kısa, ebeveyn dostu. Her yanıtta "tıbbi tavsiye değildir, gerektiğinde doktora başvur" şeklinde kısa bir uyarı ekle.
+Biçim:
+• 1 kısa özet cümle.
+• 3 madde uygulanabilir öneri.
+• 1 madde: "Ne zaman doktora başvurmalı?".
+Açık bir kırmızı bayrak yoksa acil uyarısı verme; sakin kal. Sadece şu durumlarda en başa kısa bir **ACİL** satırı ekle: <3 ay + ≥38°C, belirgin solunum sıkıntısı, morarma, bilinç değişikliği. Toplam ≤ 90 kelime.`;
   }
-  return (
-    'You are a pediatric assistant. Do NOT diagnose or prescribe medications/doses.\n' +
-    'Answer ONLY in ENGLISH. Tone: calm, concise, parent-friendly.\n' +
-    'Structure:\n' +
-    '• One short summary sentence.\n' +
-    '• Three bullet actionable tips.\n' +
-    '• One bullet: "When to see a doctor?".\n' +
-    'Add an **URGENT** warning first ONLY if clear red flags exist (<3 months + ≥38°C, significant breathing difficulty, cyanosis, altered consciousness). Do not over-warn. Keep total ≤ 90 words.'
-  );
+  return `You are a pediatric assistant. Do NOT diagnose or prescribe medications/doses.
+Answer strictly in ENGLISH—no Turkish words. Tone: calm, concise, parent-friendly. Always include a short disclaimer that this is not medical advice and to contact a clinician when concerned.
+Structure:
+• One short summary sentence.
+• Three bullet actionable tips.
+• One bullet: "When to see a doctor?".
+Place a brief **URGENT** notice first only when clear red flags exist (<3 months + ≥38°C, significant breathing difficulty, cyanosis, altered consciousness). Otherwise, do not include dramatic emergency text. Keep total ≤ 90 words.`;
 }
 
 function disclaimerFor(lang: Lang) {
@@ -194,8 +237,8 @@ async function askGeminiSmart(
 
   const user =
     (lang === 'tr'
-      ? `Bebek yaşı (ay): ${ageMonths}\n`
-      : `Baby age (months): ${ageMonths}\n`) +
+      ? `Bebek yaşı (ay): ${ageMonths}\nDil: Türkçe yanıtla (tamamen).\n`
+      : `Baby age (months): ${ageMonths}\nLanguage: Respond purely in English.\n`) +
     (gender && gender !== 'unknown'
       ? (lang === 'tr' ? `Cinsiyet: ${gender === 'female' ? 'kız' : 'erkek'}\n` : `Gender: ${gender}\n`)
       : '') +
@@ -242,11 +285,13 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({} as any));
+    const authHeader = req.headers.get('authorization');
+    const userId = await getUserIdFromAuthHeader(authHeader);
 
     // Inputs
     let ageMonths = Number(body?.ageMonths ?? 0);
     let question  = (body?.question ?? '').toString();
-    const gender  = body?.gender as ('female'|'male'|'unknown'|undefined);
+    const gender  = (body?.gender ?? body?.sex) as ('female'|'male'|'unknown'|undefined);
     const imageUrl = (body?.imageUrl ?? '') as string;
 
     // Tally webhook (optional)
@@ -264,7 +309,7 @@ export async function POST(req: Request) {
     if (Number.isNaN(ageMonths) || ageMonths < 0) ageMonths = 0;
 
     // Language (meta + behavior)
-    const lang: Lang = getLang(req, question);
+    const lang: Lang = detectLang(req, question);
 
     // Very short question → ask for details (localized)
     if (question.trim().length < 12) {
@@ -284,6 +329,8 @@ export async function POST(req: Request) {
     const risk = evaluateRisk(ageMonths, question);
     if (risk.emergency) {
       const t = risk.temp;
+      const source: 'FALLBACK' = 'FALLBACK';
+      const references: any[] = [];
       const answer =
         lang === 'tr'
           ? '🔺 ACİL UYARI\n' +
@@ -298,32 +345,31 @@ export async function POST(req: Request) {
             '• Seek medical care now or call your local emergency number.\n' +
             '• Dress lightly; keep a cool/ventilated room; offer fluids often.\n' +
             '• Do NOT use cold baths or alcohol rubs; no dosing provided.';
+
+      await saveQuestionRecord({
+        userId,
+        ageMonths,
+        question,
+        gender: gender ?? null,
+        imageUrl,
+        lang,
+        source,
+        urgent: true,
+        references,
+      });
       return NextResponse.json({
         answer, candidates: [], disclaimer: disclaimerFor(lang),
-        meta: { source: 'FALLBACK', llmUsed: false, llmError: null, provider: 'rules', matchedFaqs: 0, urgent: true, language: lang }
+        meta: { source, llmUsed: false, llmError: null, provider: 'rules', matchedFaqs: 0, urgent: true, language: lang }
       });
     }
 
     const urgent = detectUrgent(ageMonths, question);
 
-    // Save question (best-effort)
-    try {
-      const supa = supabaseServer();
-      // extras sütunu yoksa sorun etmez (PostgREST bilinmeyeni atar); istersen tabloya jsonb extras ekleyebilirsin
-      await supa.from('questions').insert({
-        user_id: null,
-        child_age_months: ageMonths,
-        text: question,
-        gender: gender ?? null,
-        image_url: imageUrl || null,
-        extras: { lang }
-      } as any);
-    } catch {}
-
     // Candidate FAQs
     let faqs: Faq[] = [];
     try {
       const supa = supabaseServer();
+      if (!supa) throw new Error('Supabase unavailable');
       const { data } = await supa
         .from('faqs')
         .select('*')
@@ -364,6 +410,26 @@ export async function POST(req: Request) {
           ? '🔺 Fallback\nÖn değerlendirme: Metne göre acil belirti görünmüyor. Çocuğu gözlemleyin, sıvı alımını takip edin. Belirtiler artarsa sağlık profesyoneline başvurun.'
           : '🔺 Fallback\nInitial assessment: no immediate danger detected based on your text. Monitor your child and keep up with fluids. If symptoms worsen or new red flags appear, seek medical care.');
     }
+
+    const references = faqs.map((f) => ({
+      id: f.id,
+      question: f.question,
+      category: f.category,
+      age_min: f.age_min,
+      age_max: f.age_max,
+    }));
+
+    await saveQuestionRecord({
+      userId,
+      ageMonths,
+      question,
+      gender: gender ?? null,
+      imageUrl,
+      lang,
+      source,
+      urgent,
+      references,
+    });
 
     return NextResponse.json({
       answer,
