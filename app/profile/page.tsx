@@ -1,253 +1,183 @@
+// app/profile/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { useI18n } from '@/lib/useI18n';
+import { FormEvent, useEffect, useState } from 'react';
+import { getSupabaseBrowser } from '../../lib/supabaseBrowser'; // Gerekirse yolu düzelt
 
-import type { User } from '@supabase/supabase-js';
-
-
-type Profile = { baby_name: string; birth_date: string };
-type Question = {
+type QuestionRow = {
   id: string;
   created_at: string;
-  child_age_months: number | null;
-
+  text: string;
 };
 
-const LS_KEY = 'babyq_profile_v1';
-
-function monthsBetween(birthISO: string) {
-  if (!birthISO) return 0;
-  const b = new Date(birthISO);
+function calcAgeMonthsFromDate(dateStr: string): number {
+  if (!dateStr) return 0;
+  const dob = new Date(dateStr);
+  if (Number.isNaN(dob.getTime())) return 0;
   const now = new Date();
-  let m = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
-  if (now.getDate() < b.getDate()) m -= 1;
-  return Math.max(0, m);
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '-';
-
+  const years = now.getFullYear() - dob.getFullYear();
+  const months = now.getMonth() - dob.getMonth();
+  const total = years * 12 + months - (now.getDate() < dob.getDate() ? 1 : 0);
+  return total < 0 ? 0 : total;
 }
 
 export default function ProfilePage() {
-  const { t, lang } = useI18n();
-  const supabase = useMemo(() => getSupabaseBrowser(), []);
-
   const [babyName, setBabyName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [saved, setSaved] = useState(false);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [dob, setDob] = useState('');
+  const [ageMonths, setAgeMonths] = useState(0);
+  const [saving, setSaving] = useState(false);
 
+  const [questions, setQuestions] = useState<QuestionRow[]>([]);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
 
+  // Tarih değişince yaş hesapla
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const p = JSON.parse(raw) as Profile;
-        setBabyName(p.baby_name || '');
-        setBirthDate(p.birth_date || '');
-      }
-    } catch {}
-  }, []);
+    setAgeMonths(calcAgeMonthsFromDate(dob));
+  }, [dob]);
 
+  // Son 20 soruyu Supabase’ten çek
   useEffect(() => {
+    const supabase = getSupabaseBrowser();
     if (!supabase) {
-      setError('Supabase configuration is missing.');
+      setQuestionsError(
+        'Supabase config is missing or invalid, so questions cannot be loaded.'
+      );
       return;
     }
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => listener?.subscription.unsubscribe();
-  }, [supabase]);
 
-  useEffect(() => {
-    if (!supabase || !user) return;
-    let cancelled = false;
-    setCheckingProfile(true);
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', user.id)
-          .maybeSingle();
-        if (cancelled) return;
-        if (!error && data?.id) {
-          setProfileExists(true);
-        } else {
-          setProfileExists(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Error checking profile', err);
-          setProfileExists(false);
-        }
-      } finally {
-        if (!cancelled) setCheckingProfile(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, user]);
-
-  useEffect(() => {
-    if (!supabase || !user) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('questions')
-          .select('id, created_at, child_age_months, gender, source, text, extras')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(50);
-        if (cancelled) return;
+    setQuestionsLoading(true);
+    supabase
+      .from('questions')
+      .select('id, created_at, text')
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data, error }) => {
         if (error) {
-          setError(t('errorQuestions'));
-          setQuestions([]);
+          console.error(error);
+          setQuestionsError('Failed to load questions from Supabase.');
         } else {
           setQuestions(data || []);
+          setQuestionsError(null);
         }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Error loading questions', err);
-          setError(t('errorQuestions'));
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, user, t]);
+      })
+      .finally(() => setQuestionsLoading(false));
+  }, []);
 
-  const ageMonths = useMemo(() => monthsBetween(birthDate), [birthDate]);
-
-  useEffect(() => {
-    async function load() {
-      if (!supabase) {
-        setError('Supabase yapılandırması eksik.');
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      const { data, error } = await supabase
-        .from('questions')
-        .select('id, created_at, child_age_months, source, extras')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (error) {
-        setError('Sorular yüklenemedi.');
-      } else {
-        setQuestions(data || []);
-      }
-      setLoading(false);
-    }
-    load();
-  }, [supabase]);
-
-  function onSave(e: React.FormEvent) {
+  const onSave = (e: FormEvent) => {
     e.preventDefault();
-    const p: Profile = { baby_name: babyName.trim(), birth_date: birthDate };
-    localStorage.setItem(LS_KEY, JSON.stringify(p));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  }
-
-  async function handleCreateProfile() {
-    if (!supabase || !user) return;
-    setCheckingProfile(true);
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({ id: user.id }, { onConflict: 'id' });
-    if (error) {
-      setToast(error.message);
-    } else {
-      setProfileExists(true);
-      setToast(lang === 'tr' ? 'Profil başarıyla oluşturuldu ✅' : 'Profile created successfully ✅');
+    setSaving(true);
+    try {
+      // Şimdilik localStorage’a kaydediyoruz; istersen Supabase’e de yazabiliriz.
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          'babyq_profile',
+          JSON.stringify({ babyName, dob, ageMonths })
+        );
+      }
+    } finally {
+      setSaving(false);
     }
-    setCheckingProfile(false);
-    setTimeout(() => setToast(null), 2000);
-  }
+  };
 
   return (
-    <main style={{ maxWidth: 900, margin: '24px auto', padding: 16 }}>
-
-        Enter your baby’s info. <strong>Age (months)</strong> will auto-fill on the Ask page.
+    <main style={{ maxWidth: 720, margin: '0 auto', padding: '40px 24px' }}>
+      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>
+        Profile
+      </h1>
+      <p style={{ marginBottom: 16 }}>
+        Enter your baby&apos;s info. <strong>Age (months)</strong> will auto-fill
+        on the Ask page.
       </p>
 
       <form
-  onSubmit={(e) => onSave(e)}
-  style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}
->
-
-        <label>
-          Baby’s name (optional)
+        onSubmit={onSave}
+        style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}
+      >
+        <label style={{ display: 'grid', gap: 4 }}>
+          Baby&apos;s name (optional)
           <input
+            type="text"
+            placeholder="e.g. Daisy"
             value={babyName}
             onChange={(e) => setBabyName(e.target.value)}
-            placeholder="e.g. Daisy"
-            style={{ width: '100%', padding: 10, marginTop: 6, border: '1px solid #E5E7EB', borderRadius: 12 }}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 6,
+              border: '1px solid #ddd',
+            }}
           />
         </label>
 
-        <label>
+        <label style={{ display: 'grid', gap: 4 }}>
           Date of birth
           <input
             type="date"
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            style={{ width: '100%', padding: 10, marginTop: 6, border: '1px solid #E5E7EB', borderRadius: 12 }}
-            required
+            value={dob}
+            onChange={(e) => setDob(e.target.value)}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 6,
+              border: '1px solid #ddd',
+            }}
           />
         </label>
 
-        <div style={{ opacity: 0.85 }}>
-          Calculated age: <strong>{ageMonths}</strong> months
-        </div>
+        <p>Calculated age: {ageMonths} months</p>
 
         <button
           type="submit"
-          style={{ padding: '12px 14px', background: '#111', color: '#fff', borderRadius: 12, border: 0, cursor: 'pointer' }}
+          disabled={saving}
+          style={{
+            marginTop: 12,
+            padding: '10px 16px',
+            borderRadius: 999,
+            border: 'none',
+            background: 'black',
+            color: 'white',
+            cursor: saving ? 'default' : 'pointer',
+          }}
         >
-          Save
+          {saving ? 'Saving…' : 'Save'}
         </button>
-
-        {saved && <div style={{ color: 'green' }}>Saved ✓</div>}
       </form>
 
-      <section style={{ marginTop: 32 }}>
+      <section style={{ marginTop: 48 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8 }}>
+          My Questions
+        </h2>
+        <p style={{ marginBottom: 8 }}>
+          Latest 20 questions saved to Supabase.
+        </p>
 
-
-        {!supabase && (
-          <div style={{ marginTop: 12, color: '#b91c1c' }}>
-            Supabase config is missing or invalid, so questions cannot be loaded.
-          </div>
+        {questionsError && (
+          <>
+            <p style={{ color: '#b91c1c' }}>{questionsError}</p>
+            <p style={{ color: '#b91c1c' }}>Supabase yapılandırması eksik.</p>
+          </>
         )}
 
+        {!questionsError && questionsLoading && <p>Loading…</p>}
 
-            </div>
+        {!questionsError && !questionsLoading && questions.length === 0 && (
+          <p>No questions found yet.</p>
+        )}
+
+        {!questionsError && !questionsLoading && questions.length > 0 && (
+          <ul style={{ marginTop: 12, paddingLeft: 18 }}>
             {questions.map((q) => (
-              <div
-                key={q.id}
-
-              </div>
+              <li key={q.id}>
+                <strong>
+                  {new Date(q.created_at).toLocaleString(undefined, {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                  :
+                </strong>{' '}
+                {q.text}
+              </li>
             ))}
-          </div>
-        )}
-
-
+          </ul>
         )}
       </section>
     </main>
