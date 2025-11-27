@@ -40,7 +40,12 @@ export default function ProfilePage() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) return null;
-    return createClient(url, key, { auth: { persistSession: false } });
+    try {
+      return createClient(url, key, { auth: { persistSession: false } });
+    } catch (err) {
+      console.error("Supabase client init failed", err);
+      return null;
+    }
   }, []);
 
   useEffect(() => {
@@ -136,7 +141,7 @@ export default function ProfilePage() {
 
         {!supabase && (
           <div style={{ marginTop: 12, color: '#b91c1c' }}>
-            Supabase env keys are missing, so questions cannot be loaded.
+            Supabase config is missing or invalid, so questions cannot be loaded.
           </div>
         )}
 
