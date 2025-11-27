@@ -187,7 +187,11 @@ export default function ProfilePage() {
         Enter your baby’s info. <strong>Age (months)</strong> will auto-fill on the Ask page.
       </p>
 
-      <form onSubmit={onSave} style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}>
+      <form
+  onSubmit={(e) => onSave(e)}
+  style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}
+>
+
         <label>
           Baby’s name (optional)
           <input
