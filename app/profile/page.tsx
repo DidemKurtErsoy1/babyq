@@ -1,22 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+
 
 type Profile = { baby_name: string; birth_date: string };
 type Question = {
   id: string;
   created_at: string;
   child_age_months: number | null;
-  source?: string | null;
-  extras?: { lang?: string } | null;
+<
 };
 
 const LS_KEY = 'babyq_profile_v1';
 
 function monthsBetween(birthISO: string) {
   if (!birthISO) return 0;
-  const b = new Date(birthISO); const now = new Date();
+  const b = new Date(birthISO);
+  const now = new Date();
   let m = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
   if (now.getDate() < b.getDate()) m -= 1;
   return Math.max(0, m);
@@ -25,10 +25,13 @@ function monthsBetween(birthISO: string) {
 function formatDate(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
 }
 
 export default function ProfilePage() {
+  const { t, lang } = useI18n();
+  const supabase = useMemo(() => getSupabaseBrowser(), []);
+
   const [babyName, setBabyName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [saved, setSaved] = useState(false);
@@ -36,17 +39,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) return null;
-    try {
-      return createClient(url, key, { auth: { persistSession: false } });
-    } catch (err) {
-      console.error("Supabase client init failed", err);
-      return null;
-    }
-  }, []);
 
   useEffect(() => {
     try {
@@ -58,6 +50,83 @@ export default function ProfilePage() {
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      setError('Supabase configuration is missing.');
+      return;
+    }
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => listener?.subscription.unsubscribe();
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+    let cancelled = false;
+    setCheckingProfile(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (!error && data?.id) {
+          setProfileExists(true);
+        } else {
+          setProfileExists(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Error checking profile', err);
+          setProfileExists(false);
+        }
+      } finally {
+        if (!cancelled) setCheckingProfile(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user]);
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('questions')
+          .select('id, created_at, child_age_months, gender, source, text, extras')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (cancelled) return;
+        if (error) {
+          setError(t('errorQuestions'));
+          setQuestions([]);
+        } else {
+          setQuestions(data || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Error loading questions', err);
+          setError(t('errorQuestions'));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user, t]);
 
   const ageMonths = useMemo(() => monthsBetween(birthDate), [birthDate]);
 
@@ -92,10 +161,25 @@ export default function ProfilePage() {
     setTimeout(() => setSaved(false), 1500);
   }
 
+  async function handleCreateProfile() {
+    if (!supabase || !user) return;
+    setCheckingProfile(true);
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({ id: user.id }, { onConflict: 'id' });
+    if (error) {
+      setToast(error.message);
+    } else {
+      setProfileExists(true);
+      setToast(lang === 'tr' ? 'Profil başarıyla oluşturuldu ✅' : 'Profile created successfully ✅');
+    }
+    setCheckingProfile(false);
+    setTimeout(() => setToast(null), 2000);
+  }
+
   return (
     <main style={{ maxWidth: 900, margin: '24px auto', padding: 16 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 800 }}>Profile</h1>
-      <p style={{ opacity: .75, marginTop: 6 }}>
+
         Enter your baby’s info. <strong>Age (months)</strong> will auto-fill on the Ask page.
       </p>
 
@@ -106,7 +190,7 @@ export default function ProfilePage() {
             value={babyName}
             onChange={(e) => setBabyName(e.target.value)}
             placeholder="e.g. Daisy"
-            style={{ width: '100%', padding: 10, marginTop: 6, border:'1px solid #E5E7EB', borderRadius:12 }}
+            style={{ width: '100%', padding: 10, marginTop: 6, border: '1px solid #E5E7EB', borderRadius: 12 }}
           />
         </label>
 
@@ -116,12 +200,12 @@ export default function ProfilePage() {
             type="date"
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
-            style={{ width: '100%', padding: 10, marginTop: 6, border:'1px solid #E5E7EB', borderRadius:12 }}
+            style={{ width: '100%', padding: 10, marginTop: 6, border: '1px solid #E5E7EB', borderRadius: 12 }}
             required
           />
         </label>
 
-        <div style={{ opacity: .85 }}>
+        <div style={{ opacity: 0.85 }}>
           Calculated age: <strong>{ageMonths}</strong> months
         </div>
 
@@ -136,8 +220,7 @@ export default function ProfilePage() {
       </form>
 
       <section style={{ marginTop: 32 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700 }}>My Questions</h2>
-        <p style={{ opacity: .75, marginTop: 6 }}>Latest 20 questions saved to Supabase.</p>
+
 
         {!supabase && (
           <div style={{ marginTop: 12, color: '#b91c1c' }}>
@@ -145,33 +228,18 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {loading && <div style={{ marginTop: 12 }}>Loading…</div>}
-        {error && <div style={{ marginTop: 12, color: '#b91c1c' }}>{error}</div>}
 
-        {!loading && !error && questions.length > 0 && (
-          <div style={{ marginTop: 12, border:'1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.8fr 0.8fr 0.6fr', padding: '10px 12px', background: '#F9FAFB', fontWeight: 600 }}>
-              <div>Date</div>
-              <div>Age (months)</div>
-              <div>Source</div>
-              <div>Lang</div>
             </div>
             {questions.map((q) => (
               <div
                 key={q.id}
-                style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.8fr 0.8fr 0.6fr', padding: '10px 12px', borderTop: '1px solid #E5E7EB', alignItems: 'center' }}
-              >
-                <div>{formatDate(q.created_at)}</div>
-                <div>{q.child_age_months ?? '—'}</div>
-                <div>{q.source || 'Ask form'}</div>
-                <div>{q.extras?.lang?.toUpperCase?.() || '—'}</div>
+
               </div>
             ))}
           </div>
         )}
 
-        {!loading && !error && supabase && questions.length === 0 && (
-          <div style={{ marginTop: 12, opacity: .75 }}>No questions recorded yet.</div>
+
         )}
       </section>
     </main>
