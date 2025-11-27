@@ -1,186 +1,293 @@
-// app/profile/page.tsx
+// app/page.tsx
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { getSupabaseBrowser } from '../../lib/supabaseBrowser'; // Gerekirse yolu düzelt
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
-type QuestionRow = {
-  id: string;
-  created_at: string;
-  text: string;
+type Sex = 'unknown' | 'female' | 'male';
+
+type ApiMeta = {
+  source?: 'AI' | 'FAQ' | 'FALLBACK';
+  llmUsed?: boolean;
+  llmError?: string | null;
+  matchedFaqs?: number;
+  urgent?: boolean;
+  provider?: string;
+  language?: string;
 };
 
-function calcAgeMonthsFromDate(dateStr: string): number {
-  if (!dateStr) return 0;
-  const dob = new Date(dateStr);
-  if (Number.isNaN(dob.getTime())) return 0;
-  const now = new Date();
-  const years = now.getFullYear() - dob.getFullYear();
-  const months = now.getMonth() - dob.getMonth();
-  const total = years * 12 + months - (now.getDate() < dob.getDate() ? 1 : 0);
-  return total < 0 ? 0 : total;
+type ApiResp = {
+  answer?: string;
+  candidates?: any[];
+  disclaimer?: string;
+  meta?: ApiMeta;
+  error?: string;
+  detail?: string;
+};
+
+function clampAge(age: number) {
+  if (Number.isNaN(age) || age < 0) return 0;
+  if (age > 60) return 60; // 0–5 yaş arasıyla sınırla
+  return Math.round(age);
 }
 
-export default function ProfilePage() {
-  const [babyName, setBabyName] = useState('');
-  const [dob, setDob] = useState('');
-  const [ageMonths, setAgeMonths] = useState(0);
-  const [saving, setSaving] = useState(false);
+export default function HomePage() {
+  const [ageMonths, setAgeMonths] = useState<number>(0);
+  const [sex, setSex] = useState<Sex>('unknown');
+  const [question, setQuestion] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resp, setResp] = useState<ApiResp | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [questions, setQuestions] = useState<QuestionRow[]>([]);
-  const [questionsError, setQuestionsError] = useState<string | null>(null);
-  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const answerRef = useRef<HTMLDivElement | null>(null);
 
-  // Tarih değişince yaş hesapla
+  // Yanıt geldiğinde otomatik aşağı kaydır
   useEffect(() => {
-    setAgeMonths(calcAgeMonthsFromDate(dob));
-  }, [dob]);
+    if (resp?.answer && answerRef.current) {
+      answerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [resp?.answer]);
 
-  // Son 20 soruyu Supabase’ten çek
-  useEffect(() => {
-    const supabase = getSupabaseBrowser();
-    if (!supabase) {
-      setQuestionsError(
-        'Supabase config is missing or invalid, so questions cannot be loaded.'
-      );
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setResp(null);
+
+    const cleanAge = clampAge(ageMonths);
+    if (!question.trim()) {
+      setError('Lütfen bebeğinizle ilgili sorunuzu yazın.');
       return;
     }
 
-    setQuestionsLoading(true);
-    supabase
-      .from('questions')
-      .select('id, created_at, text')
-      .order('created_at', { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
-        if (error) {
-          console.error(error);
-          setQuestionsError('Failed to load questions from Supabase.');
-        } else {
-          setQuestions(data || []);
-          setQuestionsError(null);
-        }
-      })
-      .finally(() => setQuestionsLoading(false));
-  }, []);
-
-  const onSave = (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+    setLoading(true);
     try {
-      // Şimdilik localStorage’a kaydediyoruz; istersen Supabase’e de yazabiliriz.
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(
-          'babyq_profile',
-          JSON.stringify({ babyName, dob, ageMonths })
-        );
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ageMonths: cleanAge,
+          question: question.trim(),
+          gender: sex,
+        }),
+      });
+
+      const data = (await res.json()) as ApiResp;
+      if (!res.ok) {
+        setError(data.error || data.detail || 'Bir hata oluştu.');
+      } else {
+        setResp(data);
       }
+    } catch (err) {
+      console.error(err);
+      setError('Sunucuya bağlanırken bir sorun oluştu.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
+  const meta = resp?.meta ?? {};
+
   return (
     <main style={{ maxWidth: 720, margin: '0 auto', padding: '40px 24px' }}>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>
-        Profile
-      </h1>
-      <p style={{ marginBottom: 16 }}>
-        Enter your baby&apos;s info. <strong>Age (months)</strong> will auto-fill
-        on the Ask page.
+      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>BabyQ</h1>
+      <p style={{ marginBottom: 24 }}>
+        Bebeğinizle ilgili sorunuzu yazın. Yaş (ay) bilgisini eklemeniz, daha
+        güvenli ve anlamlı yanıtlar vermemize yardımcı olur.
       </p>
 
       <form
-        onSubmit={onSave}
-        style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}
+        onSubmit={onSubmit}
+        style={{ display: 'grid', gap: 12, marginBottom: 32 }}
       >
         <label style={{ display: 'grid', gap: 4 }}>
-          Baby&apos;s name (optional)
+          Age (months)
           <input
-            type="text"
-            placeholder="e.g. Daisy"
-            value={babyName}
-            onChange={(e) => setBabyName(e.target.value)}
+            type="number"
+            min={0}
+            max={60}
+            value={ageMonths}
+            onChange={(e) => setAgeMonths(clampAge(Number(e.target.value)))}
             style={{
               padding: '10px 12px',
               borderRadius: 6,
               border: '1px solid #ddd',
+              maxWidth: 160,
             }}
           />
         </label>
 
         <label style={{ display: 'grid', gap: 4 }}>
-          Date of birth
-          <input
-            type="date"
-            value={dob}
-            onChange={(e) => setDob(e.target.value)}
+          Gender (optional)
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setSex('unknown')}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 999,
+                border: '1px solid #ddd',
+                background: sex === 'unknown' ? '#000' : '#fff',
+                color: sex === 'unknown' ? '#fff' : '#000',
+                cursor: 'pointer',
+              }}
+            >
+              Not specified
+            </button>
+            <button
+              type="button"
+              onClick={() => setSex('female')}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 999,
+                border: '1px solid #ddd',
+                background: sex === 'female' ? '#000' : '#fff',
+                color: sex === 'female' ? '#fff' : '#000',
+                cursor: 'pointer',
+              }}
+            >
+              Girl
+            </button>
+            <button
+              type="button"
+              onClick={() => setSex('male')}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 999,
+                border: '1px solid #ddd',
+                background: sex === 'male' ? '#000' : '#fff',
+                color: sex === 'male' ? '#fff' : '#000',
+                cursor: 'pointer',
+              }}
+            >
+              Boy
+            </button>
+          </div>
+        </label>
+
+        <label style={{ display: 'grid', gap: 4 }}>
+          Question
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            rows={5}
+            placeholder="Örn: 7 aylık bebeğimin ateşi 38.5, ne yapmalıyım?"
             style={{
               padding: '10px 12px',
               borderRadius: 6,
               border: '1px solid #ddd',
+              resize: 'vertical',
             }}
           />
         </label>
-
-        <p>Calculated age: {ageMonths} months</p>
 
         <button
           type="submit"
-          disabled={saving}
+          disabled={loading}
           style={{
-            marginTop: 12,
+            marginTop: 8,
             padding: '10px 16px',
             borderRadius: 999,
             border: 'none',
-            background: 'black',
-            color: 'white',
-            cursor: saving ? 'default' : 'pointer',
+            background: '#000',
+            color: '#fff',
+            cursor: loading ? 'default' : 'pointer',
           }}
         >
-          {saving ? 'Saving…' : 'Save'}
+          {loading ? 'Preparing answer…' : 'Ask BabyQ'}
         </button>
       </form>
 
-      <section style={{ marginTop: 48 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8 }}>
-          My Questions
-        </h2>
-        <p style={{ marginBottom: 8 }}>
-          Latest 20 questions saved to Supabase.
-        </p>
+      {error && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '10px 12px',
+            borderRadius: 8,
+            background: '#fee2e2',
+            color: '#991b1b',
+            fontSize: 14,
+          }}
+        >
+          {error}
+        </div>
+      )}
 
-        {questionsError && (
-          <>
-            <p style={{ color: '#b91c1c' }}>{questionsError}</p>
-            <p style={{ color: '#b91c1c' }}>Supabase yapılandırması eksik.</p>
-          </>
+      <div ref={answerRef}>
+        {resp?.answer && (
+          <section
+            style={{
+              marginTop: 16,
+              padding: '16px 14px',
+              borderRadius: 12,
+              border: '1px solid #e5e5e5',
+              background: '#f9fafb',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                marginBottom: 8,
+              }}
+            >
+              {meta.source && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    border: '1px solid #d4d4d4',
+                  }}
+                >
+                  {meta.source === 'AI'
+                    ? '🤖 AI'
+                    : meta.source === 'FAQ'
+                    ? '📚 FAQ'
+                    : '🛟 Fallback'}
+                </span>
+              )}
+              {meta.urgent && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    background: '#fee2e2',
+                    color: '#991b1b',
+                  }}
+                >
+                  ⚠️ Possible urgent
+                </span>
+              )}
+            </div>
+
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+                fontSize: 15,
+                margin: 0,
+              }}
+            >
+              {resp.answer}
+            </pre>
+
+            {resp.disclaimer && (
+              <p
+                style={{
+                  marginTop: 12,
+                  fontSize: 12,
+                  color: '#6b7280',
+                  borderTop: '1px dashed #e5e7eb',
+                  paddingTop: 8,
+                }}
+              >
+                {resp.disclaimer}
+              </p>
+            )}
+          </section>
         )}
-
-        {!questionsError && questionsLoading && <p>Loading…</p>}
-
-        {!questionsError && !questionsLoading && questions.length === 0 && (
-          <p>No questions found yet.</p>
-        )}
-
-        {!questionsError && !questionsLoading && questions.length > 0 && (
-          <ul style={{ marginTop: 12, paddingLeft: 18 }}>
-            {questions.map((q) => (
-              <li key={q.id}>
-                <strong>
-                  {new Date(q.created_at).toLocaleString(undefined, {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
-                  :
-                </strong>{' '}
-                {q.text}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      </div>
     </main>
   );
 }
-
