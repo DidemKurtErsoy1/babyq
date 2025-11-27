@@ -43,74 +43,104 @@ export default function ProfilePage() {
   const fieldBase = {
     width: '100%',
     padding: '13px 14px',
-    borderRadius: 12,
-    border: '1px solid #DED6C8',
-    background: '#FBF7EE',
-    color: '#111',
+    borderRadius: 14,
+    border: '1px solid #E4D3BF',
+    background: '#FFF9EF',
+    color: '#18110B',
     outline: 'none',
     fontSize: 16,
+    transition: 'box-shadow 0.15s ease',
   } as const;
 
   const hasProfile = babyName.trim() || birthDate;
 
   return (
-    <main style={{ background: '#F7F0E5', minHeight: '100vh' }}>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #FFF7EC 0%, #FFEFD9 28%, #FFF7EC 100%)',
+      }}
+    >
       <div
         style={{
-          maxWidth: 800,
+          maxWidth: 820,
           margin: '0 auto',
-          padding: '32px 18px 48px',
+          padding: '36px 20px 54px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
+          gap: 18,
         }}
       >
         <section
           style={{
-            border: '1px solid #EEE',
-            background: '#FFF',
-            borderRadius: 18,
-            padding: '28px 24px',
-            boxShadow: '0 8px 28px rgba(0,0,0,0.05)',
+            border: '1px solid #F0DED0',
+            background: '#FFFFFF',
+            borderRadius: 22,
+            padding: '30px 26px',
+            boxShadow: '0 14px 36px rgba(0,0,0,0.06)',
+            display: 'grid',
+            gap: 14,
           }}
         >
-          <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, color: '#0E0A05' }}>Profile</h1>
-          <p style={{ opacity: 0.75, marginTop: 8, fontSize: 16 }}>
-            Enter your baby’s info. <strong>Age (months)</strong> will auto-fill on the Ask page.
-          </p>
+          <div style={{ display: 'grid', gap: 6 }}>
+            <h1 style={{ fontSize: 33, fontWeight: 800, margin: 0, color: '#18110B' }}>Profile</h1>
+            <p style={{ opacity: 0.82, marginTop: 2, fontSize: 16, color: '#6F665D' }}>
+              Enter your baby’s info. <strong>Age (months)</strong> will auto-fill on the Ask page.
+            </p>
+          </div>
 
-          <form onSubmit={onSave} style={{ display: 'grid', gap: 16, marginTop: 18 }}>
-            <label style={{ display: 'grid', gap: 8, fontSize: 15 }}>
-              <span style={{ fontWeight: 700, color: '#0E0A05' }}>Baby’s name (optional)</span>
+          <form onSubmit={onSave} style={{ display: 'grid', gap: 18, marginTop: 4 }}>
+            <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#18110B' }}>
+              <span style={{ fontWeight: 700 }}>Baby’s name (optional)</span>
               <input
                 value={babyName}
                 onChange={(e) => setBabyName(e.target.value)}
                 placeholder="e.g. Daisy"
                 style={fieldBase}
                 onFocus={(e) =>
-                  (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(17,17,17,0.12)')
+                  (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(75,166,181,0.3)')
                 }
                 onBlur={(e) => (e.currentTarget.style.boxShadow = 'none')}
               />
             </label>
 
-            <label style={{ display: 'grid', gap: 8, fontSize: 15 }}>
-              <span style={{ fontWeight: 700, color: '#0E0A05' }}>Date of birth</span>
+            <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#18110B' }}>
+              <span style={{ fontWeight: 700 }}>Date of birth</span>
               <input
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
                 style={fieldBase}
                 onFocus={(e) =>
-                  (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(17,17,17,0.12)')
+                  (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(75,166,181,0.3)')
                 }
                 onBlur={(e) => (e.currentTarget.style.boxShadow = 'none')}
                 required
               />
             </label>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: '#514730' }}>
-              <span style={{ padding: '6px 10px', borderRadius: 10, background: '#F4EBDD', border: '1px solid #E4D9C5' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 14,
+                color: '#514730',
+                background: '#FFF3DC',
+                border: '1px solid #F0DED0',
+                borderRadius: 14,
+                padding: '10px 12px',
+              }}
+            >
+              <span
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 10,
+                  background: '#FFEDD1',
+                  border: '1px solid #E8CFA3',
+                  display: 'inline-flex',
+                }}
+              >
                 ℹ️
               </span>
               <span>
@@ -122,24 +152,25 @@ export default function ProfilePage() {
               type="submit"
               className="primary-btn"
               style={{
-                padding: '14px 18px',
-                background: '#111',
-                color: '#FAF7F0',
+                padding: '15px 18px',
+                background: '#FFB545',
+                color: '#ffffff',
                 borderRadius: 14,
-                border: '1px solid #0E0A05',
+                border: '1px solid #E5A03A',
                 cursor: 'pointer',
-                fontWeight: 700,
+                fontWeight: 750,
                 letterSpacing: 0.1,
-                boxShadow: '0 6px 14px rgba(0,0,0,0.08)',
+                boxShadow: '0 10px 24px rgba(255,181,69,0.35)',
+                transition: 'transform 0.15s ease, box-shadow 0.2s ease, background 0.15s ease',
               }}
             >
               Save
             </button>
 
-            {saved && <div style={{ color: 'green', fontWeight: 600 }}>Saved ✓</div>}
+            {saved && <div style={{ color: '#2F8D46', fontWeight: 650 }}>Saved ✓</div>}
           </form>
 
-          <p style={{ marginTop: 16, fontSize: 14, color: '#6B6250' }}>
+          <p style={{ marginTop: 4, fontSize: 14, color: '#6F665D', lineHeight: 1.6 }}>
             Profile data is stored locally on this device and used to pre-fill the Ask page.
           </p>
         </section>
@@ -148,16 +179,16 @@ export default function ProfilePage() {
           <section
             aria-label="Saved profile"
             style={{
-              border: '1px solid #EAE2D4',
-              background: '#FFFEFA',
-              borderRadius: 14,
-              padding: 18,
-              boxShadow: '0 6px 16px rgba(0,0,0,0.05)',
+              border: '1px solid #F0DED0',
+              background: '#FFF5E3',
+              borderRadius: 18,
+              padding: 20,
+              boxShadow: '0 12px 26px rgba(0,0,0,0.07)',
               display: 'grid',
-              gap: 6,
+              gap: 8,
             }}
           >
-            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: '#0E0A05' }}>Saved profile</h2>
+            <h2 style={{ fontSize: 21, fontWeight: 750, margin: 0, color: '#18110B' }}>Saved profile</h2>
             <div style={{ fontSize: 15, color: '#1C1A17' }}>Name: {babyName || '—'}</div>
             <div style={{ fontSize: 15, color: '#1C1A17' }}>Date of birth: {birthDate || '—'}</div>
             <div style={{ fontSize: 15, color: '#1C1A17' }}>Calculated age: {ageMonths} months</div>
@@ -178,6 +209,12 @@ export default function ProfilePage() {
           .primary-btn {
             width: 100%;
           }
+        }
+
+        .primary-btn:hover {
+          background: #d6800f;
+          box-shadow: 0 12px 26px rgba(214, 128, 15, 0.35);
+          transform: translateY(-1px);
         }
       `}</style>
     </main>
