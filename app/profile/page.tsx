@@ -87,45 +87,52 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!supabase || !user) return;
     setCheckingProfile(true);
-    supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
         if (!error && data?.id) {
           setProfileExists(true);
         } else {
           setProfileExists(false);
         }
+      } catch (err) {
+        console.error('Error checking profile', err);
+        setProfileExists(false);
+      } finally {
         setCheckingProfile(false);
-      })
-      .catch(() => setCheckingProfile(false));
+      }
+    })();
   }, [supabase, user]);
 
   useEffect(() => {
     if (!supabase || !user) return;
     setLoading(true);
     setError(null);
-    supabase
-      .from('questions')
-      .select('id, created_at, child_age_months, gender, source, text, extras')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50)
-      .then(({ data, error }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('questions')
+          .select('id, created_at, child_age_months, gender, source, text, extras')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
         if (error) {
           setError(t('errorQuestions'));
           setQuestions([]);
         } else {
           setQuestions(data || []);
         }
-        setLoading(false);
-      })
-      .catch(() => {
+      } catch (err) {
+        console.error('Error loading questions', err);
         setError(t('errorQuestions'));
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, [supabase, user, t]);
 
   const ageMonths = useMemo(() => monthsBetween(birthDate), [birthDate]);
