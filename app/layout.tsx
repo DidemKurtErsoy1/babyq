@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "BabyQ — Parenting Answers",
   description: "Trusted, instant answers to the questions every parent has.",
   manifest: "/manifest.json",
+  themeColor: "#111111",
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -23,10 +24,6 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
   },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#111111",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
