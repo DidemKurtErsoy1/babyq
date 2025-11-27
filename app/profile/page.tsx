@@ -2,7 +2,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { getSupabaseBrowser } from '../../lib/supabaseBrowser'; // Gerekirse yolu düzelt
+import { getSupabaseBrowser } from '../../lib/supabaseBrowser'; // gerekirse yolu düzelt
 
 type QuestionRow = {
   id: string;
@@ -31,12 +31,12 @@ export default function ProfilePage() {
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [questionsLoading, setQuestionsLoading] = useState(false);
 
-  // Tarih değişince yaş hesapla
+  // tarih değişince yaşı hesapla
   useEffect(() => {
     setAgeMonths(calcAgeMonthsFromDate(dob));
   }, [dob]);
 
-  // Son 20 soruyu Supabase’ten çek
+  // son 20 soruyu Supabase’ten çek
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     if (!supabase) {
@@ -68,7 +68,6 @@ export default function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      // Şimdilik localStorage’a kaydediyoruz; istersen Supabase’e de yazabiliriz.
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(
           'babyq_profile',
@@ -86,10 +85,11 @@ export default function ProfilePage() {
         Profile
       </h1>
       <p style={{ marginBottom: 16 }}>
-        Enter your baby&apos;s info. <strong>Age (months)</strong> will auto-fill
-        on the Ask page.
+        Enter your baby&apos;s info. <strong>Age (months)</strong> will
+        auto-fill on the Ask page.
       </p>
 
+      {/* >>> SORUN ÇIKAN FORM BURASI – TEK SATIR AÇILIŞ <<< */}
       <form
         onSubmit={onSave}
         style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}
