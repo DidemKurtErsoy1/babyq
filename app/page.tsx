@@ -2,6 +2,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { useI18n } from '@/lib/useI18n';
 
 type ApiResp = {
   answer?: string;
@@ -71,6 +73,7 @@ function fmtWhen(ts: number) {
 }
 
 export default function Home() {
+  const { t } = useI18n();
   const [age, setAge] = useState<string>('7');
   const [sex, setSex] = useState<'female' | 'male' | 'unknown'>('unknown');
   const [question, setQuestion] = useState<string>('Fever 38.2°C; what should I do?');
@@ -85,9 +88,25 @@ export default function Home() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
+  const supabase = useMemo(() => getSupabaseBrowser(), []);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
   const answerRef = useRef<HTMLDivElement | null>(null);
 
   // Profile'dan yaş (ay) ve cinsiyet otomatik doldur (localStorage)
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthToken(data.session?.access_token ?? null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthToken(session?.access_token ?? null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
@@ -142,7 +161,7 @@ export default function Home() {
 
     const payload = {
       ageMonths: Number(age || 0),
-      sex, // ileride backend için hazır
+      gender: sex,
       question: question.trim(),
     };
     setLastPayload(payload);
@@ -151,7 +170,10 @@ export default function Home() {
       const url = providerQuery ? `/api/ask?v=${providerQuery}` : '/api/ask';
       const r = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
 
@@ -235,8 +257,8 @@ export default function Home() {
       {/* Header + History button */}
       <header style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0 }}>Ask BabyQ</h1>
-          <p style={{ opacity: 0.8, marginTop: 6 }}>Short, parent-friendly answers. Not medical advice.</p>
+          <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0 }}>{t('askTitle')}</h1>
+          <p style={{ opacity: 0.8, marginTop: 6 }}>{t('subtitle')}</p>
         </div>
 
         <button
@@ -288,7 +310,7 @@ export default function Home() {
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
         {/* Age */}
         <label htmlFor="age" style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontWeight: 600 }}>Baby’s age (months) 👶</span>
+          <span style={{ fontWeight: 600 }}>{t('ageLabel')} 👶</span>
           <input
             id="age"
             type="number"
@@ -314,7 +336,7 @@ export default function Home() {
 
         {/* Sex */}
         <label htmlFor="sex" style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontWeight: 600 }}>Baby’s sex 🏷️</span>
+          <span style={{ fontWeight: 600 }}>{t('sexLabel')} 🏷️</span>
           <select
             id="sex"
             value={sex}
@@ -348,7 +370,7 @@ export default function Home() {
 
         {/* Question */}
         <label htmlFor="q" style={{ display: 'grid', gap: 6 }}>
-          <span style={{ fontWeight: 600 }}>What’s your concern? ❓</span>
+          <span style={{ fontWeight: 600 }}>{t('concernLabel')} ❓</span>
           <textarea
             id="q"
             value={question}
@@ -398,9 +420,15 @@ export default function Home() {
               }}
             />
           )}
-          {loading ? 'Preparing answer…' : 'Get answer'}
-        </button>
-      </form>
+          {loading ? t('preparingAnswer') : t('getAnswer')}
+      </button>
+    </form>
+
+      {loading && (
+        <div style={{ marginTop: 12, opacity: 0.8 }} role="status">
+          {t('preparingAnswer')}
+        </div>
+      )}
 
       {/* Answer */}
       {resp && (
@@ -458,12 +486,12 @@ export default function Home() {
                 className="btn small"
                 style={{ marginLeft: 'auto' }}
               >
-                {copied ? '✅ Copied' : 'Copy answer'}
+                {copied ? t('copied') : t('copyAnswer')}
               </button>
             </div>
 
             <h3 style={{ fontSize: 22, fontWeight: 800, marginTop: 12, marginBottom: 6 }}>
-              Answer
+              {t('answerTitle')}
             </h3>
             <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
               {cleanAnswer(resp.answer || '')}
@@ -476,9 +504,26 @@ export default function Home() {
               </div>
             )}
 
+            {/* References (always visible if present) */}
+            {resp.candidates?.length ? (
+              <div style={{ marginTop: 16 }}>
+                <h4 style={{ fontWeight: 700 }}>{t('referencesTitle')}</h4>
+                <ul style={{ marginTop: 8 }}>
+                  {resp.candidates.map((c: any, i: number) => (
+                    <li key={c.id || i} style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600 }}>
+                        {(c.category || 'General')} • {c.age_min}-{c.age_max} months
+                      </div>
+                      <div style={{ opacity: 0.8 }}>{c.question}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             {/* Sources (default hidden; only with ?debug or ?sources) */}
             {showSources && resp.candidates?.length ? (
-              <details style={{ marginTop: 16 }}>
+              <details style={{ marginTop: 12 }}>
                 <summary>Show sources ({resp.candidates.length})</summary>
                 <ul style={{ marginTop: 8 }}>
                   {resp.candidates.map((c: any, i: number) => (
