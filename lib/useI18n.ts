@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 type Lang = 'en' | 'tr';
 
@@ -62,20 +62,13 @@ const messages = {
 type MessageKey = keyof typeof messages.en;
 
 export function useI18n() {
-  const [lang, setLang] = useState<Lang>('en');
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const navLang = navigator.languages?.[0] || navigator.language || '';
-    const next = navLang.toLowerCase().startsWith('tr') ? 'tr' : 'en';
-    setLang(next);
-  }, []);
+  const lang: Lang = 'en'; // UI is locked to English
 
   const t = useMemo(
     () => (key: MessageKey) => {
       return messages[lang][key] ?? key;
     },
-    [lang]
+    []
   );
 
   return { lang, t };

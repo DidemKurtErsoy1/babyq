@@ -36,19 +36,11 @@ function cut(s: string, max = 400) {
 function detectLangFromText(q: string): Lang {
   const s = (q || '').toLowerCase();
   const hasTrSignal =
-    s.match(/[çğıöşü]/) || /merhaba|ateş|öksür|ishal|kusma|bebek|ay/.test(s);
+    s.match(/[çğıöşü]/) || /\bmerhaba\b|\bateş\b|\böksür\b|\bishal\b|\bkusma\b|\bbebek\b|\byaş\b|\bay\b/.test(s);
   return hasTrSignal ? 'tr' : 'en';
 }
 
-function detectLang(req: Request, question: string): Lang {
-  const url = new URL(req.url);
-  const qp = url.searchParams.get('lang');
-  if (qp === 'tr' || qp === 'en') return qp;
-
-  const acceptLang = (req.headers.get('accept-language') || '').toLowerCase();
-  if (/\btr\b/.test(acceptLang)) return 'tr';
-  if (/\ben\b/.test(acceptLang)) return 'en';
-
+function detectLang(_req: Request, question: string): Lang {
   return detectLangFromText(question);
 }
 
@@ -198,7 +190,21 @@ async function geminiGenerate(prompt: string) {
 
 function systemPrompt(lang: Lang) {
   if (lang === 'tr') {
-
+    return `Bir pediatri asistanısın. Tanı koyma, ilaç/doz verme.
+Cevabı tamamen TÜRKÇE tut; İngilizce karıştırma. Ton: sakin, kısa, ebeveyn dostu. Her yanıtta "tıbbi tavsiye değildir, gerektiğinde doktora başvur" şeklinde kısa bir uyarı ekle.
+Biçim:
+• 1 kısa özet cümle.
+• 3 madde uygulanabilir öneri.
+• 1 madde: "Ne zaman doktora başvurmalı?".
+Açık bir kırmızı bayrak yoksa acil uyarısı verme; sakin kal. Sadece şu durumlarda en başa kısa bir **ACİL** satırı ekle: <3 ay + ≥38°C, belirgin solunum sıkıntısı, morarma, bilinç değişikliği. Toplam ≤ 90 kelime.`;
+  }
+  return `You are a pediatric assistant. Do NOT diagnose or prescribe medications/doses.
+Answer strictly in ENGLISH—no Turkish words. Tone: calm, concise, parent-friendly. Always include a short disclaimer that this is not medical advice and to contact a clinician when concerned.
+Structure:
+• One short summary sentence.
+• Three bullet actionable tips.
+• One bullet: "When to see a doctor?".
+Place a brief **URGENT** notice first only when clear red flags exist (<3 months + ≥38°C, significant breathing difficulty, cyanosis, altered consciousness). Otherwise, do not include dramatic emergency text. Keep total ≤ 90 words.`;
 }
 
 function disclaimerFor(lang: Lang) {
