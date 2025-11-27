@@ -86,6 +86,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!supabase || !user) return;
+    let cancelled = false;
     setCheckingProfile(true);
     (async () => {
       try {
@@ -94,22 +95,29 @@ export default function ProfilePage() {
           .select('id')
           .eq('id', user.id)
           .maybeSingle();
+        if (cancelled) return;
         if (!error && data?.id) {
           setProfileExists(true);
         } else {
           setProfileExists(false);
         }
       } catch (err) {
-        console.error('Error checking profile', err);
-        setProfileExists(false);
+        if (!cancelled) {
+          console.error('Error checking profile', err);
+          setProfileExists(false);
+        }
       } finally {
-        setCheckingProfile(false);
+        if (!cancelled) setCheckingProfile(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [supabase, user]);
 
   useEffect(() => {
     if (!supabase || !user) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
     (async () => {
@@ -120,6 +128,7 @@ export default function ProfilePage() {
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(50);
+        if (cancelled) return;
         if (error) {
           setError(t('errorQuestions'));
           setQuestions([]);
@@ -127,12 +136,17 @@ export default function ProfilePage() {
           setQuestions(data || []);
         }
       } catch (err) {
-        console.error('Error loading questions', err);
-        setError(t('errorQuestions'));
+        if (!cancelled) {
+          console.error('Error loading questions', err);
+          setError(t('errorQuestions'));
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [supabase, user, t]);
 
   const ageMonths = useMemo(() => monthsBetween(birthDate), [birthDate]);
