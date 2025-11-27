@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { useI18n } from '@/lib/useI18n';
+
+import type { User } from '@supabase/supabase-js';
 
 
 type Profile = { baby_name: string; birth_date: string };
@@ -8,7 +12,7 @@ type Question = {
   id: string;
   created_at: string;
   child_age_months: number | null;
-<
+
 };
 
 const LS_KEY = 'babyq_profile_v1';

@@ -198,25 +198,7 @@ async function geminiGenerate(prompt: string) {
 
 function systemPrompt(lang: Lang) {
   if (lang === 'tr') {
-    return (
-      'Bir pediatri asistanısın. Tanı koyma, ilaç/doz verme.\n' +
 
-      'Biçim:\n' +
-      '• 1 kısa özet cümle.\n' +
-      '• 3 madde uygulanabilir öneri.\n' +
-      '• 1 madde: "Ne zaman doktora başvurmalı?".\n' +
-
-    );
-  }
-  return (
-    'You are a pediatric assistant. Do NOT diagnose or prescribe medications/doses.\n' +
-
-    'Structure:\n' +
-    '• One short summary sentence.\n' +
-    '• Three bullet actionable tips.\n' +
-    '• One bullet: "When to see a doctor?".\n' +
-
-  );
 }
 
 function disclaimerFor(lang: Lang) {
