@@ -42,135 +42,137 @@ export default function ProfilePage() {
 
   const fieldBase = {
     width: '100%',
-    padding: '13px 14px',
+    padding: '13px 16px',
     borderRadius: 14,
-    border: '1px solid #E4D3BF',
-    background: '#FFF9EF',
-    color: '#18110B',
+    border: '1.5px solid #C8E2D4',
+    background: '#FAFFF9',
+    color: '#2D3436',
     outline: 'none',
     fontSize: 16,
-    transition: 'box-shadow 0.15s ease',
+    fontFamily: 'inherit',
+    transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
   } as const;
 
   const hasProfile = babyName.trim() || birthDate;
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg, #FFF7EC 0%, #FFEFD9 28%, #FFF7EC 100%)',
-      }}
-    >
+    <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #FFF8F0 0%, #F0FAF4 40%, #FFF8F0 100%)' }}>
       <div
         style={{
-          maxWidth: 820,
+          maxWidth: 720,
           margin: '0 auto',
-          padding: '36px 20px 54px',
+          padding: '36px 20px 64px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 18,
+          gap: 20,
         }}
       >
         <section
           style={{
-            border: '1px solid #F0DED0',
+            border: '1px solid #C8E2D4',
             background: '#FFFFFF',
-            borderRadius: 22,
-            padding: '30px 26px',
-            boxShadow: '0 14px 36px rgba(0,0,0,0.06)',
+            borderRadius: 26,
+            padding: '32px 30px',
+            boxShadow: '0 12px 40px rgba(44, 122, 86, 0.09)',
             display: 'grid',
-            gap: 14,
+            gap: 16,
           }}
         >
           <div style={{ display: 'grid', gap: 6 }}>
-            <h1 style={{ fontSize: 33, fontWeight: 800, margin: 0, color: '#18110B' }}>Profile</h1>
-            <p style={{ opacity: 0.82, marginTop: 2, fontSize: 16, color: '#6F665D' }}>
-              Enter your baby’s info. <strong>Age (months)</strong> will auto-fill on the Ask page.
+            <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: '#1A3328' }}>Baby Profile</h1>
+            <p style={{ marginTop: 4, fontSize: 16, color: '#4A6B55', lineHeight: 1.6 }}>
+              Enter your baby's info. <strong>Age (months)</strong> will auto-fill on the Ask page.
             </p>
           </div>
 
-          <form onSubmit={onSave} style={{ display: 'grid', gap: 18, marginTop: 4 }}>
-            <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#18110B' }}>
-              <span style={{ fontWeight: 700 }}>Baby’s name (optional)</span>
+          <form onSubmit={onSave} style={{ display: 'grid', gap: 20, marginTop: 4 }}>
+            <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436', fontWeight: 600 }}>
+              Baby's name (optional)
               <input
                 value={babyName}
                 onChange={(e) => setBabyName(e.target.value)}
                 placeholder="e.g. Daisy"
                 style={fieldBase}
-                onFocus={(e) =>
-                  (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(75,166,181,0.3)')
-                }
-                onBlur={(e) => (e.currentTarget.style.boxShadow = 'none')}
+                onFocus={(e) => {
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(76,175,125,0.25)';
+                  e.currentTarget.style.borderColor = '#4CAF7D';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = '#C8E2D4';
+                }}
               />
             </label>
 
-            <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#18110B' }}>
-              <span style={{ fontWeight: 700 }}>Date of birth</span>
+            <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436', fontWeight: 600 }}>
+              Date of birth
               <input
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
                 style={fieldBase}
-                onFocus={(e) =>
-                  (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(75,166,181,0.3)')
-                }
-                onBlur={(e) => (e.currentTarget.style.boxShadow = 'none')}
+                onFocus={(e) => {
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(76,175,125,0.25)';
+                  e.currentTarget.style.borderColor = '#4CAF7D';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = '#C8E2D4';
+                }}
                 required
               />
             </label>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                fontSize: 14,
-                color: '#514730',
-                background: '#FFF3DC',
-                border: '1px solid #F0DED0',
-                borderRadius: 14,
-                padding: '10px 12px',
-              }}
-            >
-              <span
+            {birthDate && (
+              <div
                 style={{
-                  padding: '6px 10px',
-                  borderRadius: 10,
-                  background: '#FFEDD1',
-                  border: '1px solid #E8CFA3',
-                  display: 'inline-flex',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  fontSize: 14,
+                  color: '#1E5E3A',
+                  background: '#EDF9F3',
+                  border: '1px solid #A8DDB8',
+                  borderRadius: 14,
+                  padding: '11px 14px',
+                  fontWeight: 600,
                 }}
               >
-                ℹ️
-              </span>
-              <span>
-                Calculated age: <strong>{ageMonths}</strong> months
-              </span>
-            </div>
+                <span style={{ fontSize: 18 }}>🌱</span>
+                <span>
+                  Calculated age: <strong>{ageMonths} months</strong>
+                </span>
+              </div>
+            )}
 
             <button
               type="submit"
-              className="primary-btn"
+              className="save-btn"
               style={{
-                padding: '15px 18px',
-                background: '#FFB545',
+                padding: '15px 22px',
+                background: 'linear-gradient(135deg, #4CAF7D 0%, #3D9A6D 100%)',
                 color: '#ffffff',
-                borderRadius: 14,
-                border: '1px solid #E5A03A',
+                borderRadius: 16,
+                border: 'none',
                 cursor: 'pointer',
-                fontWeight: 750,
-                letterSpacing: 0.1,
-                boxShadow: '0 10px 24px rgba(255,181,69,0.35)',
-                transition: 'transform 0.15s ease, box-shadow 0.2s ease, background 0.15s ease',
+                fontWeight: 800,
+                fontSize: 16,
+                fontFamily: 'inherit',
+                boxShadow: '0 10px 28px rgba(76, 175, 125, 0.35)',
+                transition: 'transform 0.15s ease, box-shadow 0.2s ease',
               }}
             >
-              Save
+              Save profile
             </button>
 
-            {saved && <div style={{ color: '#2F8D46', fontWeight: 650 }}>Saved ✓</div>}
+            {saved && (
+              <div style={{ color: '#27AE60', fontWeight: 700, fontSize: 15 }}>
+                ✓ Profile saved!
+              </div>
+            )}
           </form>
 
-          <p style={{ marginTop: 4, fontSize: 14, color: '#6F665D', lineHeight: 1.6 }}>
+          <p style={{ marginTop: 4, fontSize: 13, color: '#636E72', lineHeight: 1.6 }}>
             Profile data is stored locally on this device and used to pre-fill the Ask page.
           </p>
         </section>
@@ -179,42 +181,42 @@ export default function ProfilePage() {
           <section
             aria-label="Saved profile"
             style={{
-              border: '1px solid #F0DED0',
-              background: '#FFF5E3',
-              borderRadius: 18,
-              padding: 20,
-              boxShadow: '0 12px 26px rgba(0,0,0,0.07)',
+              border: '1px solid #A8DDB8',
+              background: '#EDF9F3',
+              borderRadius: 22,
+              padding: '22px 26px',
+              boxShadow: '0 8px 28px rgba(44, 122, 86, 0.1)',
               display: 'grid',
-              gap: 8,
+              gap: 10,
             }}
           >
-            <h2 style={{ fontSize: 21, fontWeight: 750, margin: 0, color: '#18110B' }}>Saved profile</h2>
-            <div style={{ fontSize: 15, color: '#1C1A17' }}>Name: {babyName || '—'}</div>
-            <div style={{ fontSize: 15, color: '#1C1A17' }}>Date of birth: {birthDate || '—'}</div>
-            <div style={{ fontSize: 15, color: '#1C1A17' }}>Calculated age: {ageMonths} months</div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#1A3328' }}>Saved profile</h2>
+            <div style={{ fontSize: 15, color: '#2D3436' }}>Name: {babyName || '—'}</div>
+            <div style={{ fontSize: 15, color: '#2D3436' }}>Date of birth: {birthDate || '—'}</div>
+            <div style={{ fontSize: 15, color: '#2D3436' }}>Calculated age: {ageMonths} months</div>
           </section>
         )}
       </div>
 
       <style jsx>{`
-        @media (min-width: 768px) {
-          .primary-btn {
+        @media (min-width: 640px) {
+          .save-btn {
             width: auto;
             min-width: 220px;
             align-self: flex-start;
           }
         }
-
-        @media (max-width: 767px) {
-          .primary-btn {
+        @media (max-width: 639px) {
+          .save-btn {
             width: 100%;
           }
         }
-
-        .primary-btn:hover {
-          background: #d6800f;
-          box-shadow: 0 12px 26px rgba(214, 128, 15, 0.35);
-          transform: translateY(-1px);
+        .save-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 14px 32px rgba(76, 175, 125, 0.42) !important;
+        }
+        .save-btn:active {
+          transform: translateY(0);
         }
       `}</style>
     </main>
