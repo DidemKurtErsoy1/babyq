@@ -46,6 +46,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<null | 'sent'>(null);
   const answerRef = useRef<HTMLDivElement | null>(null);
 
   // Profile → age auto-fill
@@ -83,6 +84,7 @@ export default function Home() {
     setError(null);
     setResp(null);
     setCopied(false);
+    setFeedback(null);
 
     const payload = {
       ageMonths: Number(age || 0),
@@ -115,6 +117,21 @@ export default function Home() {
   }
 
   const srcBadge = badgeFor(resp?.meta?.source as any, resp?.meta?.provider);
+
+  async function sendFeedback(was_helpful: boolean) {
+    setFeedback('sent');
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question_text: question.trim(),
+          age_months: Number(age || 0),
+          was_helpful,
+        }),
+      });
+    } catch {}
+  }
 
   const fieldBase = {
     width: '100%',
@@ -431,6 +448,56 @@ export default function Home() {
                 {resp.disclaimer}
               </div>
             )}
+
+            {/* Feedback */}
+            <div
+              style={{
+                marginTop: 16,
+                paddingTop: 14,
+                borderTop: '1px solid #EDE0D0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              {feedback === 'sent' ? (
+                <span style={{ fontSize: 14, color: '#6F665D' }}>Teşekkürler! 🙏</span>
+              ) : (
+                <>
+                  <span style={{ fontSize: 13, color: '#6F665D' }}>Bu cevap yardımcı oldu mu?</span>
+                  <button
+                    onClick={() => sendFeedback(true)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 999,
+                      border: '1px solid #C6DDE1',
+                      background: '#F1FBFD',
+                      color: '#1F4B52',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                    }}
+                    aria-label="Evet, yardımcı oldu"
+                  >
+                    👍
+                  </button>
+                  <button
+                    onClick={() => sendFeedback(false)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 999,
+                      border: '1px solid #E4D3BF',
+                      background: '#FFF9EF',
+                      color: '#5C4A2A',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                    }}
+                    aria-label="Hayır, yardımcı olmadı"
+                  >
+                    👎
+                  </button>
+                </>
+              )}
+            </div>
 
             {/* Sources (hidden unless ?debug or ?sources) */}
             {showSources && resp.candidates?.length ? (
