@@ -11,7 +11,7 @@ export default function NavClient() {
   if (user) {
     return (
       <>
-        <Link className="nav-btn" href="/history">Geçmişim</Link>
+        <Link className="nav-btn" href="/history">History</Link>
         <button
           onClick={signOut}
           className="nav-btn"
@@ -24,11 +24,11 @@ export default function NavClient() {
             padding: 0,
           }}
         >
-          Çıkış
+          Sign Out
         </button>
       </>
     );
   }
 
-  return <Link className="nav-btn" href="/login">Giriş Yap</Link>;
+  return <Link className="nav-btn" href="/login">Sign In</Link>;
 }

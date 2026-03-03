@@ -69,7 +69,7 @@ export default function LoginPage() {
           }}
         >
           <h1 style={{ fontSize: 28, fontWeight: 900, margin: '0 0 24px', color: '#1A3328' }}>
-            {tab === 'signin' ? 'Giriş Yap' : 'Kayıt Ol'}
+            {tab === 'signin' ? 'Sign In' : 'Sign Up'}
           </h1>
 
           {/* Tabs */}
@@ -102,7 +102,7 @@ export default function LoginPage() {
                   transition: 'background 0.15s ease, color 0.15s ease',
                 }}
               >
-                {t === 'signin' ? 'Giriş Yap' : 'Kayıt Ol'}
+                {t === 'signin' ? 'Sign In' : 'Sign Up'}
               </button>
             ))}
           </div>
@@ -119,7 +119,7 @@ export default function LoginPage() {
                 lineHeight: 1.6,
               }}
             >
-              Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın, ardından giriş yapabilirsiniz.
+              Sign up successful! Please verify your email address, then you can sign in.
             </div>
           ) : (
             <form onSubmit={onSubmit} style={{ display: 'grid', gap: 18 }}>
@@ -140,12 +140,12 @@ export default function LoginPage() {
               )}
 
               <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436', fontWeight: 600 }}>
-                E-posta
+                Email
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ornek@email.com"
+                  placeholder="you@email.com"
                   style={fieldBase}
                   required
                   autoComplete="email"
@@ -161,12 +161,12 @@ export default function LoginPage() {
               </label>
 
               <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436', fontWeight: 600 }}>
-                Şifre
+                Password
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="En az 6 karakter"
+                  placeholder="At least 6 characters"
                   style={fieldBase}
                   required
                   minLength={6}
@@ -202,7 +202,7 @@ export default function LoginPage() {
                   transition: 'transform 0.15s ease, box-shadow 0.2s ease',
                 }}
               >
-                {loading ? 'Bekleyin…' : tab === 'signin' ? 'Giriş Yap' : 'Kayıt Ol'}
+                {loading ? 'Please wait…' : tab === 'signin' ? 'Sign In' : 'Sign Up'}
               </button>
             </form>
           )}

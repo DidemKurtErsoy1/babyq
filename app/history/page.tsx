@@ -118,7 +118,7 @@ export default function HistoryPage() {
 
   function formatDate(iso: string) {
     try {
-      return new Date(iso).toLocaleDateString('tr-TR', {
+      return new Date(iso).toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -134,7 +134,7 @@ export default function HistoryPage() {
     return (
       <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #FFF8F0 0%, #F0FAF4 40%, #FFF8F0 100%)' }}>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 20px 64px', display: 'grid', gap: 16 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 900, color: '#1A3328', margin: 0 }}>Geçmişim</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 900, color: '#1A3328', margin: 0 }}>History</h1>
           {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
         </div>
         <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
@@ -154,7 +154,7 @@ export default function HistoryPage() {
           gap: 20,
         }}
       >
-        <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: '#1A3328' }}>Geçmişim</h1>
+        <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: '#1A3328' }}>History</h1>
 
         {fetchError && (
           <div
@@ -182,7 +182,7 @@ export default function HistoryPage() {
               textAlign: 'center',
             }}
           >
-            Henüz soru sorulmadı. / No questions yet.
+            No questions yet.
           </div>
         )}
 
@@ -216,7 +216,7 @@ export default function HistoryPage() {
                       fontWeight: 700,
                     }}
                   >
-                    🔺 Acil
+                    🔺 Urgent
                   </span>
                 )}
                 <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>
@@ -227,15 +227,15 @@ export default function HistoryPage() {
               {/* Meta */}
               {(q.child_age_months !== null || q.sex) && (
                 <div style={{ fontSize: 13, color: '#636E72' }}>
-                  {q.child_age_months !== null && <span>Yaş: {q.child_age_months} ay</span>}
+                  {q.child_age_months !== null && <span>Age: {q.child_age_months} mo</span>}
                   {q.child_age_months !== null && q.sex && <span> · </span>}
-                  {q.sex && <span>Cinsiyet: {q.sex}</span>}
+                  {q.sex && <span>Gender: {q.sex}</span>}
                 </div>
               )}
 
               {/* Question */}
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#4A6B55', marginBottom: 4 }}>Soru</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#4A6B55', marginBottom: 4 }}>Question</div>
                 <div style={{ fontSize: 15, color: '#2D3436', lineHeight: 1.6 }}>{q.text}</div>
               </div>
 
@@ -258,7 +258,7 @@ export default function HistoryPage() {
                       gap: 4,
                     }}
                   >
-                    {isExpanded ? '▲ Yanıtı gizle' : '▼ Yanıtı göster'}
+                    {isExpanded ? '▲ Hide answer' : '▼ Show answer'}
                   </button>
                   {isExpanded && (
                     <div

@@ -545,10 +545,10 @@ export default function Home() {
               }}
             >
               {feedback === 'sent' ? (
-                <span style={{ fontSize: 14, color: '#4A6B55', fontWeight: 600 }}>Teşekkürler! 🙏</span>
+                <span style={{ fontSize: 14, color: '#4A6B55', fontWeight: 600 }}>Thank you! 🙏</span>
               ) : (
                 <>
-                  <span style={{ fontSize: 13, color: '#636E72', fontWeight: 600 }}>Bu cevap yardımcı oldu mu?</span>
+                  <span style={{ fontSize: 13, color: '#636E72', fontWeight: 600 }}>Was this answer helpful?</span>
                   <button
                     onClick={() => sendFeedback(true)}
                     style={{
@@ -561,7 +561,7 @@ export default function Home() {
                       fontSize: 16,
                       fontFamily: 'inherit',
                     }}
-                    aria-label="Evet, yardımcı oldu"
+                    aria-label="Yes, it was helpful"
                   >
                     👍
                   </button>
@@ -577,7 +577,7 @@ export default function Home() {
                       fontSize: 16,
                       fontFamily: 'inherit',
                     }}
-                    aria-label="Hayır, yardımcı olmadı"
+                    aria-label="No, it wasn't helpful"
                   >
                     👎
                   </button>

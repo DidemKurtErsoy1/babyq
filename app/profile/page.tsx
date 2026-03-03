@@ -207,14 +207,14 @@ export default function ProfilePage() {
 
             {saved && (
               <div style={{ color: '#27AE60', fontWeight: 700, fontSize: 15 }}>
-                {cloudSaved ? 'Profil hesabına kaydedildi ✓' : '✓ Profile saved!'}
+                {cloudSaved ? 'Saved to your account ✓' : '✓ Profile saved!'}
               </div>
             )}
           </form>
 
           <p style={{ marginTop: 4, fontSize: 13, color: '#636E72', lineHeight: 1.6 }}>
             {user
-              ? 'Profil hesabınıza ve bu cihaza kaydedilmektedir.'
+              ? 'Profile is saved to your account and this device.'
               : 'Profile data is stored locally on this device and used to pre-fill the Ask page.'}
           </p>
         </section>
