@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../lib/useAuth';
 
+/* ── Types ── */
 type ApiResp = {
   answer?: string;
   candidates?: any[];
@@ -20,13 +21,14 @@ type ApiResp = {
   detail?: string;
 };
 
+/* ── Helpers ── */
 const cleanAnswer = (s: string) =>
   (s || '').replace(/^🔹 AI\n|^🔸 FAQ\n|^🔺 Fallback\n/, '');
 
 const badgeFor = (src?: 'AI' | 'FAQ' | 'FALLBACK', provider?: string) => {
-  if (src === 'AI') return { emoji: '🤖', label: `Source: AI (${provider ?? 'LLM'})` };
-  if (src === 'FAQ') return { emoji: '📚', label: 'Source: FAQ' };
-  return { emoji: '🛟', label: 'Source: Fallback' };
+  if (src === 'AI')  return { emoji: '🤖', label: `AI · ${provider ?? 'LLM'}` };
+  if (src === 'FAQ') return { emoji: '📚', label: 'FAQ' };
+  return { emoji: '🛟', label: 'Fallback' };
 };
 
 function monthsBetween(birthISO: string) {
@@ -38,20 +40,33 @@ function monthsBetween(birthISO: string) {
   return Math.max(0, m);
 }
 
+const CHIPS = [
+  { label: 'Fever',   emoji: '🌡️' },
+  { label: 'Sleep',   emoji: '😴' },
+  { label: 'Feeding', emoji: '🍼' },
+  { label: 'Crying',  emoji: '😢' },
+  { label: 'Rash',    emoji: '🔴' },
+];
+
+/* ── Component ── */
 export default function Home() {
   const { user } = useAuth();
-  const [age, setAge] = useState<string>('7');
-  const [sex, setSex] = useState<'female' | 'male' | 'unknown'>('unknown');
-  const [question, setQuestion] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [resp, setResp] = useState<ApiResp | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [lastPayload, setLastPayload] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
-  const [feedback, setFeedback] = useState<null | 'sent'>(null);
-  const answerRef = useRef<HTMLDivElement | null>(null);
 
-  // Profile → age auto-fill
+  const [age,       setAge]       = useState<string>('7');
+  const [sex,       setSex]       = useState<'female' | 'male' | 'unknown'>('unknown');
+  const [question,  setQuestion]  = useState<string>('');
+  const [loading,   setLoading]   = useState(false);
+  const [resp,      setResp]      = useState<ApiResp | null>(null);
+  const [error,     setError]     = useState<string | null>(null);
+  const [lastPayload, setLastPayload] = useState<any>(null);
+  const [copied,    setCopied]    = useState(false);
+  const [feedback,  setFeedback]  = useState<null | 'sent'>(null);
+  const [showChips, setShowChips] = useState(false);
+
+  const answerRef = useRef<HTMLElement>(null);
+  const formRef   = useRef<HTMLElement>(null);
+
+  /* Profile → age auto-fill */
   useEffect(() => {
     try {
       const raw = localStorage.getItem('babyq_profile_v1');
@@ -62,23 +77,22 @@ export default function Home() {
     } catch {}
   }, []);
 
-  // URL params
+  /* URL params */
   const showDebug = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).has('debug');
   }, []);
-
   const providerQuery = useMemo(() => {
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('v') || '';
   }, []);
-
   const showSources = useMemo(() => {
     if (typeof window === 'undefined') return false;
     const sp = new URLSearchParams(window.location.search);
     return sp.has('debug') || sp.has('sources');
   }, []);
 
+  /* Submit */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -89,9 +103,9 @@ export default function Home() {
 
     const payload = {
       ageMonths: Number(age || 0),
-      question: question.trim(),
+      question:  question.trim(),
       sex,
-      userId: user?.id ?? null,
+      userId:    user?.id ?? null,
     };
     setLastPayload(payload);
 
@@ -102,14 +116,10 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       const j = (await r.json()) as ApiResp;
       if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
-
-      setTimeout(() => {
-        answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
+      setTimeout(() => answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (err: any) {
       setError(err?.message || 'Something went wrong.');
     } finally {
@@ -117,360 +127,485 @@ export default function Home() {
     }
   }
 
-  const srcBadge = badgeFor(resp?.meta?.source as any, resp?.meta?.provider);
-
+  /* Feedback */
   async function sendFeedback(was_helpful: boolean) {
     setFeedback('sent');
     try {
       await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question_text: question.trim(),
-          age_months: Number(age || 0),
-          was_helpful,
-        }),
+        body: JSON.stringify({ question_text: question.trim(), age_months: Number(age || 0), was_helpful }),
       });
     } catch {}
   }
 
-  const fieldBase = {
+  /* Derived */
+  const srcBadge  = badgeFor(resp?.meta?.source as any, resp?.meta?.provider);
+  const isUrgent  = !!resp?.meta?.urgent;
+  const sliderPct = `${Math.round((Math.max(0, Math.min(60, Number(age))) / 60) * 100)}%`;
+  const ageLabel  = age === '0' ? 'Newborn' : `${age} ${age === '1' ? 'month' : 'months'}`;
+
+  /* ── Input focus helpers ── */
+  function focusField(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    e.currentTarget.style.borderColor = '#40916C';
+    e.currentTarget.style.boxShadow   = '0 0 0 3px rgba(64,145,108,0.18)';
+  }
+  function blurField(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    e.currentTarget.style.borderColor = '#E5E7EB';
+    e.currentTarget.style.boxShadow   = 'none';
+  }
+
+  /* ── Shared field style ── */
+  const fieldStyle: React.CSSProperties = {
     width: '100%',
-    padding: '13px 16px',
-    borderRadius: 14,
-    border: '1.5px solid #C8E2D4',
-    background: '#FAFFF9',
-    color: '#2D3436',
+    padding: '14px 16px',
+    background: '#fff',
+    color: '#111827',
+    border: '1.5px solid #E5E7EB',
+    borderRadius: 12,
     outline: 'none',
-    fontSize: 16,
     fontFamily: 'inherit',
-    transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
-  } as const;
+    fontSize: 15,
+    lineHeight: 1.55,
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+  };
 
   return (
-    <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #FFF8F0 0%, #F0FAF4 40%, #FFF8F0 100%)' }}>
-      <div
-        style={{
-          maxWidth: 960,
+    <main style={{ background: '#F8F9FA', minHeight: '100vh' }}>
+
+      {/* ═══════════════════════════════════════
+          HERO
+      ═══════════════════════════════════════ */}
+      <section style={{
+        background: '#1B4332',
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        <div style={{
+          maxWidth: 1100,
           margin: '0 auto',
-          padding: '36px 20px 64px',
+          padding: '72px 32px 80px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: 24,
-        }}
-      >
-        {/* ── Hero ── */}
-        <section
-          style={{
-            borderRadius: 28,
-            background: 'linear-gradient(135deg, #E8F7F0 0%, #F3FBF7 60%, #E5F5ED 100%)',
-            border: '1px solid #C0E0CE',
-            padding: '44px 40px',
-            display: 'flex',
-            gap: 36,
-            alignItems: 'center',
-            overflow: 'hidden',
-          }}
-        >
+          alignItems: 'center',
+          gap: 56,
+        }}>
+          {/* Left: text */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                background: '#4CAF7D',
-                color: '#fff',
-                padding: '5px 14px',
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 700,
-                marginBottom: 20,
-              }}
-            >
+            {/* Pill badge */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              borderRadius: 999,
+              padding: '5px 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'rgba(255,255,255,0.85)',
+              marginBottom: 24,
+            }}>
               🌿 Trusted pediatric Q&amp;A
             </div>
-            <h1
-              style={{
-                fontSize: 'clamp(28px, 4vw, 46px)',
-                fontWeight: 900,
-                color: '#1A3328',
-                lineHeight: 1.12,
-                margin: '0 0 16px',
-                letterSpacing: '-0.5px',
-              }}
-            >
-              Answers for every<br />
-              parenting question
+
+            <h1 style={{
+              fontSize: 'clamp(32px, 5vw, 52px)',
+              fontWeight: 800,
+              lineHeight: 1.1,
+              color: '#fff',
+              letterSpacing: '-0.5px',
+              margin: '0 0 20px',
+            }}>
+              Answers for every<br />parenting question
             </h1>
-            <p
-              style={{
-                fontSize: 17,
-                color: '#3D6B52',
-                lineHeight: 1.65,
-                margin: '0 0 28px',
-                maxWidth: 440,
-              }}
-            >
+
+            <p style={{
+              fontSize: 17,
+              color: 'rgba(255,255,255,0.7)',
+              lineHeight: 1.65,
+              margin: '0 0 36px',
+              maxWidth: 440,
+            }}>
               Fast, clear answers about your baby's health — backed by trusted
               pediatric guidelines. Always consult your doctor for emergencies.
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, fontSize: 14, color: '#3D6B52', fontWeight: 700 }}>
-              <span>✓ TR / EN bilingual</span>
-              <span>✓ Urgent alert detection</span>
-              <span>✓ Pediatric-backed</span>
-            </div>
+
+            <button
+              onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '15px 30px',
+                background: '#40916C',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: 16,
+                fontFamily: 'inherit',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+                transition: 'background 0.15s ease, transform 0.1s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#2D6A4F'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#40916C'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              Get instant answers →
+            </button>
           </div>
 
-          <div className="hero-img-wrap">
+          {/* Right: photo */}
+          <div className="hero-photo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://images.unsplash.com/photo-1519689680058-324335c77eba?w=520&h=520&fit=crop&auto=format&q=80"
-              alt="Parent and baby"
+              src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600"
+              alt="Happy baby"
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                borderRadius: 22,
-                boxShadow: '0 24px 56px rgba(76, 175, 125, 0.22)',
+                borderRadius: 20,
+                boxShadow: '0 32px 72px rgba(0,0,0,0.35)',
+                display: 'block',
               }}
             />
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* ── Ask form ── */}
+      {/* ═══════════════════════════════════════
+          TRUST STRIP
+      ═══════════════════════════════════════ */}
+      <div style={{
+        background: '#fff',
+        borderBottom: '1px solid #E5E7EB',
+        padding: '13px 24px',
+      }}>
+        <div style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+          display: 'flex',
+          gap: 10,
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          fontSize: 13,
+          fontWeight: 500,
+          color: '#374151',
+        }}>
+          <span>🔒 Not medical advice</span>
+          <span style={{ color: '#D1D5DB', userSelect: 'none' }}>•</span>
+          <span>✓ Pediatric-backed</span>
+          <span style={{ color: '#D1D5DB', userSelect: 'none' }}>•</span>
+          <span>🌍 TR/EN bilingual</span>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════
+          PAGE BODY
+      ═══════════════════════════════════════ */}
+      <div style={{
+        maxWidth: 760,
+        margin: '0 auto',
+        padding: '52px 24px 96px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 28,
+      }}>
+
+        {/* ── ASK FORM ── */}
         <section
+          ref={formRef}
+          id="ask-form"
           style={{
-            border: '1px solid #C8E2D4',
-            background: '#FFFFFF',
-            borderRadius: 26,
-            padding: '32px 30px',
-            boxShadow: '0 12px 40px rgba(44, 122, 86, 0.09)',
+            background: '#fff',
+            borderRadius: 16,
+            border: '1px solid #E5E7EB',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)',
+            padding: '40px 36px',
           }}
         >
-          <header style={{ marginBottom: 20 }}>
-            <h2 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 6px', color: '#1A3328' }}>
+          <div style={{ marginBottom: 28 }}>
+            <h2 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 6px', color: '#111827' }}>
               Ask BabyQ
             </h2>
-            <p style={{ opacity: 0.85, marginTop: 4, marginBottom: 14, fontSize: 16, color: '#4A6B55' }}>
+            <p style={{ fontSize: 15, color: '#6B7280', margin: 0, lineHeight: 1.5 }}>
               Short, parent-friendly answers. Not medical advice.
             </p>
-            <div
-              style={{
-                border: '1px solid #F0C070',
-                background: '#FFFBF0',
-                padding: '11px 14px',
-                borderRadius: 14,
-                color: '#7A4A10',
-                fontSize: 14,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <span style={{ fontSize: 16 }}>⚠️</span>
-              <span>This is not medical advice. In emergencies, call your local emergency number.</span>
-            </div>
-          </header>
+          </div>
 
-          {/* Status banners */}
+          {/* Disclaimer banner */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '11px 14px',
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderRadius: 10,
+            fontSize: 13,
+            color: '#92400E',
+            marginBottom: 28,
+          }}>
+            <span style={{ fontSize: 15 }}>⚠️</span>
+            <span>Not a substitute for professional medical advice. In emergencies call your local emergency number.</span>
+          </div>
+
+          {/* Error */}
           {error && (
-            <div
-              role="alert"
-              style={{
-                marginBottom: 14,
-                padding: 13,
-                border: '1px solid #F5B8B8',
-                background: '#FFF5F5',
-                color: '#8C1F1F',
-                borderRadius: 14,
-              }}
-            >
+            <div role="alert" style={{
+              padding: '12px 16px',
+              background: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: 10,
+              color: '#B91C1C',
+              fontSize: 14,
+              marginBottom: 24,
+            }}>
               <strong>Error:</strong> {error}
             </div>
           )}
-          {!error && resp && (
-            <div
-              role="status"
-              style={{
-                marginBottom: 14,
-                padding: 12,
-                border: '1px solid #A8DDB8',
-                background: '#EDF9F3',
-                color: '#1A3328',
-                borderRadius: 14,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 14,
-              }}
-            >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 28,
-                  height: 28,
-                  borderRadius: 10,
-                  background: '#C8EDD8',
-                }}
-              >
-                {srcBadge.emoji}
-              </span>
-              <span>Answer ready. {srcBadge.label}</span>
-            </div>
-          )}
 
-          {/* Form */}
-          <form onSubmit={onSubmit} style={{ display: 'grid', gap: 20 }}>
-            {/* Age */}
-            <label htmlFor="age" style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436' }}>
-              <span style={{ fontWeight: 700 }}>Baby's age (months) 👶</span>
+          <form onSubmit={onSubmit} style={{ display: 'grid', gap: 26 }}>
+
+            {/* ── Age slider ── */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <label style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>
+                  Baby&apos;s age
+                </label>
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#40916C',
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  padding: '3px 12px',
+                  borderRadius: 999,
+                }}>
+                  {ageLabel}
+                </span>
+              </div>
               <input
-                id="age"
-                type="number"
+                type="range"
                 min={0}
                 max={60}
+                step={1}
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
-                placeholder="e.g., 7"
-                style={fieldBase}
-                onFocus={(e) => {
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(76,175,125,0.25)';
-                  e.currentTarget.style.borderColor = '#4CAF7D';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.borderColor = '#C8E2D4';
-                }}
-                required
+                className="age-slider"
+                style={{ '--slider-pct': sliderPct } as React.CSSProperties}
+                aria-label={`Baby's age: ${ageLabel}`}
               />
-            </label>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 12,
+                color: '#9CA3AF',
+                marginTop: 6,
+              }}>
+                <span>Newborn</span>
+                <span>5 years (60 mo)</span>
+              </div>
+            </div>
 
-            {/* Sex */}
-            <label htmlFor="sex" style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436' }}>
-              <span style={{ fontWeight: 700 }}>Baby's sex 🏷️</span>
+            {/* ── Sex ── */}
+            <div>
+              <label htmlFor="sex" style={{ display: 'block', fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                Baby&apos;s sex
+              </label>
               <select
                 id="sex"
                 value={sex}
                 onChange={(e) => setSex(e.target.value as 'female' | 'male' | 'unknown')}
-                style={fieldBase}
-                onFocus={(e) => {
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(76,175,125,0.25)';
-                  e.currentTarget.style.borderColor = '#4CAF7D';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.borderColor = '#C8E2D4';
+                onFocus={focusField}
+                onBlur={blurField}
+                style={{
+                  ...fieldStyle,
+                  appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 14px center',
+                  paddingRight: 40,
+                  cursor: 'pointer',
                 }}
               >
                 <option value="unknown">Prefer not to say</option>
                 <option value="female">Female</option>
                 <option value="male">Male</option>
               </select>
-            </label>
+            </div>
 
-            {/* Question */}
-            <label htmlFor="q" style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436' }}>
-              <span style={{ fontWeight: 700 }}>What's your concern? ❓</span>
+            {/* ── Question ── */}
+            <div>
+              <label htmlFor="q" style={{ display: 'block', fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                What&apos;s your concern?
+              </label>
               <textarea
                 id="q"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                rows={6}
-                placeholder="Describe the issue briefly…"
-                style={{ ...fieldBase, resize: 'vertical', minHeight: 170, lineHeight: 1.55 }}
-                onFocus={(e) => {
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(76,175,125,0.25)';
-                  e.currentTarget.style.borderColor = '#4CAF7D';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.borderColor = '#C8E2D4';
-                }}
+                onFocus={(e) => { focusField(e); setShowChips(true); }}
+                onBlur={blurField}
+                rows={5}
+                placeholder="Describe what you're noticing…"
+                style={{ ...fieldStyle, resize: 'vertical', minHeight: 148 }}
                 required
               />
-            </label>
 
+              {/* Quick chips */}
+              {showChips && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                  {CHIPS.map((c) => (
+                    <button
+                      type="button"
+                      key={c.label}
+                      onClick={() =>
+                        setQuestion((q) => q.trim() ? `${q.trimEnd()} ${c.label}` : c.label)
+                      }
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '6px 14px',
+                        background: '#ECFDF5',
+                        border: '1px solid #A7F3D0',
+                        borderRadius: 999,
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: '#065F46',
+                        fontFamily: 'inherit',
+                        transition: 'background 0.12s ease',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#D1FAE5'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '#ECFDF5'; }}
+                    >
+                      {c.emoji} {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Submit ── */}
             <button
               type="submit"
               disabled={loading || !question.trim()}
-              aria-disabled={loading || !question.trim()}
               className="submit-btn"
               style={{
-                padding: '16px 22px',
-                background: loading
-                  ? '#A8D9BE'
-                  : 'linear-gradient(135deg, #4CAF7D 0%, #3D9A6D 100%)',
-                color: '#ffffff',
-                borderRadius: 16,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '15px 30px',
+                background: loading ? '#9CA3AF' : '#40916C',
+                color: '#fff',
                 border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 800,
-                fontSize: 17,
+                borderRadius: 10,
+                cursor: (loading || !question.trim()) ? 'not-allowed' : 'pointer',
+                fontWeight: 700,
+                fontSize: 16,
                 fontFamily: 'inherit',
-                letterSpacing: 0.2,
-                transition: 'transform 0.15s ease, box-shadow 0.2s ease',
-                boxShadow: loading ? 'none' : '0 10px 28px rgba(76, 175, 125, 0.35)',
-                opacity: loading ? 0.75 : 1,
+                opacity: (loading || !question.trim()) ? 0.6 : 1,
+                transition: 'background 0.15s ease, transform 0.1s ease',
+                boxShadow: loading ? 'none' : '0 2px 10px rgba(64,145,108,0.32)',
               }}
             >
-              {loading ? 'Preparing answer…' : '✨ Get answer'}
+              {loading ? 'Preparing…' : '✨ Get answer'}
             </button>
           </form>
         </section>
 
-        {/* ── Answer ── */}
-        {resp && (
+        {/* ── LOADING (footprints) ── */}
+        {loading && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 14,
+            padding: '36px 0',
+          }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  style={{
+                    fontSize: 30,
+                    display: 'inline-block',
+                    animation: `footstep 1.5s ease-in-out ${i * 0.38}s infinite`,
+                  }}
+                  aria-hidden="true"
+                >
+                  👣
+                </span>
+              ))}
+            </div>
+            <p style={{ fontSize: 14, color: '#6B7280', margin: 0, fontWeight: 500 }}>
+              Preparing your answer…
+            </p>
+          </div>
+        )}
+
+        {/* ── ANSWER CARD ── */}
+        {resp && !loading && (
           <section
             ref={answerRef}
             style={{
-              border: '1px solid #C8E2D4',
-              borderRadius: 26,
-              padding: '28px 30px',
-              background: '#FFFFFF',
-              boxShadow: '0 16px 48px rgba(44, 122, 86, 0.1)',
+              background: '#fff',
+              borderRadius: 16,
+              borderTop:    '1px solid #E5E7EB',
+              borderRight:  '1px solid #E5E7EB',
+              borderBottom: '1px solid #E5E7EB',
+              borderLeft:   isUrgent ? '5px solid #DC2626' : '5px solid #40916C',
+              boxShadow: isUrgent
+                ? '0 4px 24px rgba(220,38,38,0.12)'
+                : '0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)',
+              padding: '32px 32px 28px',
+              animation: isUrgent
+                ? 'shake 0.55s ease-in-out, fadeInUp 0.3s ease'
+                : 'fadeInUp 0.3s ease',
             }}
           >
-            {/* URGENT box */}
-            {resp?.meta?.urgent && (
-              <div
-                style={{
-                  marginBottom: 16,
-                  padding: 14,
-                  border: '1px solid #F5B8B8',
-                  background: '#FFF5F5',
-                  color: '#8C1F1F',
-                  borderRadius: 14,
-                  fontWeight: 600,
-                }}
-              >
-                🚨 <strong>URGENT:</strong> Possible emergency. Call your local emergency number or visit the nearest healthcare facility immediately.
+            {/* Urgent banner */}
+            {isUrgent && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '14px 18px',
+                background: '#FEF2F2',
+                border: '1px solid #FECACA',
+                borderRadius: 12,
+                marginBottom: 24,
+              }}>
+                <span style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>⚠️</span>
+                <div>
+                  <strong style={{ color: '#B91C1C', fontSize: 15, display: 'block', marginBottom: 3 }}>
+                    This looks urgent — call emergency services
+                  </strong>
+                  <span style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 1.5 }}>
+                    Please contact your local emergency number or visit the nearest healthcare facility immediately.
+                  </span>
+                </div>
               </div>
             )}
 
-            <div
-              style={{
-                display: 'flex',
+            {/* Header: source badge + copy */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+              <span style={{
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: 10,
-                marginBottom: 14,
-                flexWrap: 'wrap',
-              }}
-            >
-              <span
-                aria-label="answer source"
-                title={srcBadge.label}
-                style={{
-                  fontSize: 12,
-                  padding: '6px 12px',
-                  borderRadius: 999,
-                  background: '#E2F5EC',
-                  border: '1px solid #A8DDB8',
-                  color: '#1E5E3A',
-                  fontWeight: 700,
-                }}
-              >
+                gap: 5,
+                padding: '4px 12px',
+                borderRadius: 999,
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                color: '#065F46',
+                fontSize: 12,
+                fontWeight: 600,
+              }}>
                 {srcBadge.emoji} {srcBadge.label}
               </span>
 
@@ -484,120 +619,99 @@ export default function Home() {
                 }}
                 style={{
                   marginLeft: 'auto',
-                  padding: '7px 14px',
+                  padding: '5px 14px',
                   borderRadius: 999,
-                  border: '1px solid #B5DCC8',
-                  background: '#EEF9F3',
-                  color: '#1E5E3A',
+                  border: '1px solid #E5E7EB',
+                  background: '#F9FAFB',
+                  color: '#374151',
                   cursor: 'pointer',
                   fontSize: 13,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   fontFamily: 'inherit',
+                  transition: 'background 0.12s ease',
                 }}
               >
                 {copied ? '✅ Copied' : 'Copy answer'}
               </button>
             </div>
 
-            <h3 style={{ fontSize: 22, fontWeight: 800, marginTop: 4, marginBottom: 12, color: '#1A3328' }}>Answer</h3>
-            <div
-              style={{
-                whiteSpace: 'pre-wrap',
-                marginTop: 6,
-                lineHeight: 1.7,
-                fontSize: 16,
-                padding: '16px 18px',
-                borderRadius: 16,
-                background:
-                  resp?.meta?.source === 'AI'
-                    ? '#F0FBF5'
-                    : resp?.meta?.source === 'FAQ'
-                    ? '#FFFBF0'
-                    : '#FFF5F5',
-                border:
-                  resp?.meta?.source === 'AI'
-                    ? '1px solid #A8DDB8'
-                    : resp?.meta?.source === 'FAQ'
-                    ? '1px solid #F0C070'
-                    : '1px solid #F5B8B8',
-                color: '#2D3436',
-              }}
-            >
+            {/* Answer heading + body */}
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px', color: '#111827' }}>
+              Answer
+            </h3>
+            <div style={{
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.78,
+              fontSize: 15,
+              color: '#374151',
+              padding: '18px 20px',
+              background: '#F9FAFB',
+              borderRadius: 10,
+              border: '1px solid #E5E7EB',
+            }}>
               {cleanAnswer(resp.answer || '')}
             </div>
 
             {/* Disclaimer */}
             {resp?.disclaimer && (
-              <div style={{ marginTop: 14, fontSize: 13, color: '#636E72', lineHeight: 1.6 }}>
+              <p style={{ marginTop: 14, fontSize: 13, color: '#6B7280', lineHeight: 1.6 }}>
                 {resp.disclaimer}
-              </div>
+              </p>
             )}
 
             {/* Feedback */}
-            <div
-              style={{
-                marginTop: 18,
-                paddingTop: 16,
-                borderTop: '1px solid #D8E8DC',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
+            <div style={{
+              marginTop: 22,
+              paddingTop: 16,
+              borderTop: '1px solid #F3F4F6',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}>
               {feedback === 'sent' ? (
-                <span style={{ fontSize: 14, color: '#4A6B55', fontWeight: 600 }}>Thank you! 🙏</span>
+                <span style={{ fontSize: 14, color: '#40916C', fontWeight: 600 }}>
+                  Thank you! 🙏
+                </span>
               ) : (
                 <>
-                  <span style={{ fontSize: 13, color: '#636E72', fontWeight: 600 }}>Was this answer helpful?</span>
+                  <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>
+                    Was this answer helpful?
+                  </span>
                   <button
                     onClick={() => sendFeedback(true)}
-                    style={{
-                      padding: '6px 16px',
-                      borderRadius: 999,
-                      border: '1px solid #A8DDB8',
-                      background: '#EEF9F3',
-                      color: '#1E5E3A',
-                      cursor: 'pointer',
-                      fontSize: 16,
-                      fontFamily: 'inherit',
-                    }}
                     aria-label="Yes, it was helpful"
-                  >
-                    👍
-                  </button>
+                    style={{
+                      padding: '5px 14px', borderRadius: 999,
+                      border: '1px solid #A7F3D0', background: '#ECFDF5',
+                      color: '#065F46', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit',
+                    }}
+                  >👍</button>
                   <button
                     onClick={() => sendFeedback(false)}
-                    style={{
-                      padding: '6px 16px',
-                      borderRadius: 999,
-                      border: '1px solid #D8E8DC',
-                      background: '#F5FAF7',
-                      color: '#636E72',
-                      cursor: 'pointer',
-                      fontSize: 16,
-                      fontFamily: 'inherit',
-                    }}
                     aria-label="No, it wasn't helpful"
-                  >
-                    👎
-                  </button>
+                    style={{
+                      padding: '5px 14px', borderRadius: 999,
+                      border: '1px solid #E5E7EB', background: '#F9FAFB',
+                      color: '#6B7280', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit',
+                    }}
+                  >👎</button>
                 </>
               )}
             </div>
 
             {/* Sources */}
             {showSources && resp.candidates?.length ? (
-              <details style={{ marginTop: 18 }}>
-                <summary style={{ fontWeight: 700, color: '#3D6B52', cursor: 'pointer' }}>
-                  Show sources ({resp.candidates.length})
+              <details style={{ marginTop: 20 }}>
+                <summary style={{ fontWeight: 600, color: '#374151', cursor: 'pointer', fontSize: 14 }}>
+                  Sources ({resp.candidates.length})
                 </summary>
                 <ul style={{ marginTop: 10, paddingLeft: 18, display: 'grid', gap: 8 }}>
                   {resp.candidates.map((c: any, i: number) => (
                     <li key={c.id || i}>
-                      <div style={{ fontWeight: 700 }}>
-                        {(c.category || 'General')} • {c.age_min}-{c.age_max} months
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {c.category || 'General'} · {c.age_min}–{c.age_max} months
                       </div>
-                      <div style={{ opacity: 0.8 }}>{c.question}</div>
+                      <div style={{ opacity: 0.7, fontSize: 13 }}>{c.question}</div>
                     </li>
                   ))}
                 </ul>
@@ -608,11 +722,11 @@ export default function Home() {
             {showDebug && (
               <>
                 <details style={{ marginTop: 14 }}>
-                  <summary>Debug (meta)</summary>
+                  <summary style={{ fontSize: 13, cursor: 'pointer', color: '#6B7280' }}>Debug (meta)</summary>
                   <pre style={{ marginTop: 8 }}>{JSON.stringify(resp.meta, null, 2)}</pre>
                 </details>
-                <details style={{ marginTop: 14 }}>
-                  <summary>Sent payload</summary>
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{ fontSize: 13, cursor: 'pointer', color: '#6B7280' }}>Sent payload</summary>
                   <pre style={{ marginTop: 8 }}>{JSON.stringify(lastPayload, null, 2)}</pre>
                 </details>
               </>
@@ -621,37 +735,25 @@ export default function Home() {
         )}
       </div>
 
+      {/* ── Responsive styles ── */}
       <style jsx>{`
-        .hero-img-wrap {
+        .hero-photo {
           flex-shrink: 0;
-          width: 280px;
-          height: 280px;
+          width: 340px;
+          height: 400px;
         }
-        @media (max-width: 700px) {
-          .hero-img-wrap {
-            display: none;
-          }
+        @media (max-width: 768px) {
+          .hero-photo { display: none; }
         }
-
+        .submit-btn {
+          width: 100%;
+        }
         @media (min-width: 640px) {
           .submit-btn {
-            width: auto;
-            min-width: 240px;
+            width: auto !important;
+            min-width: 200px;
             align-self: flex-start;
           }
-        }
-        @media (max-width: 639px) {
-          .submit-btn {
-            width: 100%;
-          }
-        }
-
-        .submit-btn:not([disabled]):hover {
-          transform: translateY(-2px);
-          box-shadow: 0 14px 32px rgba(76, 175, 125, 0.42);
-        }
-        .submit-btn:not([disabled]):active {
-          transform: translateY(0);
         }
       `}</style>
     </main>

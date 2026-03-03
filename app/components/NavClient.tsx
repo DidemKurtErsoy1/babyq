@@ -20,8 +20,8 @@ export default function NavClient() {
             border: 'none',
             cursor: 'pointer',
             fontFamily: 'inherit',
-            fontSize: 'inherit',
-            padding: 0,
+            fontSize: 14,
+            padding: '8px 14px',
           }}
         >
           Sign Out
@@ -30,5 +30,9 @@ export default function NavClient() {
     );
   }
 
-  return <Link className="nav-btn" href="/login">Sign In</Link>;
+  return (
+    <Link className="nav-btn nav-btn-signin" href="/login">
+      Sign In
+    </Link>
+  );
 }

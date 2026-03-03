@@ -1,15 +1,15 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Nunito } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import SwRegister from "./sw-register";
 import NavClient from "./components/NavClient";
 
-const nunito = Nunito({
-  variable: "--font-nunito",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   title: "BabyQ — Parenting Answers",
   description: "Trusted, instant answers to the questions every parent has.",
   manifest: "/manifest.json",
-  themeColor: "#4CAF7D",
+  themeColor: "#1B4332",
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -34,14 +34,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={nunito.variable}>
+      <body className={inter.variable}>
         <SwRegister />
 
-        {/* Header / Nav */}
+        {/* ── Header / Nav ── */}
         <header className="header">
           <nav className="nav">
             <Link className="brand" href="/">
-              <span className="brand-mark">🌿</span>
+              <span className="brand-mark">👶</span>
               <span>BabyQ</span>
             </Link>
             <div className="links">
@@ -54,23 +54,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </nav>
         </header>
 
-        {/* Page content */}
-        <div>
-          {children}
-        </div>
+        {/* ── Page content ── */}
+        {children}
 
-        {/* Footer */}
-        <footer
-          style={{
-            textAlign: "center",
-            padding: "28px 24px",
-            fontSize: 14,
-            color: "#636E72",
-            borderTop: "1px solid #D8E8DC",
-            background: "#F5FAF7",
-          }}
-        >
-          © {new Date().getFullYear()} <strong style={{ color: "#4CAF7D" }}>BabyQ</strong> — safe, concise answers for parents.
+        {/* ── Footer ── */}
+        <footer style={{
+          textAlign: "center",
+          padding: "32px 24px",
+          fontSize: 13,
+          color: "#6B7280",
+          borderTop: "1px solid #E5E7EB",
+          background: "#fff",
+        }}>
+          © {new Date().getFullYear()}{" "}
+          <strong style={{ color: "#1B4332" }}>BabyQ</strong>
+          {" "}— safe, concise answers for parents.
         </footer>
       </body>
     </html>
