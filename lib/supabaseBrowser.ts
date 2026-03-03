@@ -19,11 +19,11 @@ export function getSupabaseBrowser(): SupabaseClient | null {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        'Supabase env vars missing: expected NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
-      );
-    }
+    console.error(
+      '[BabyQ] Supabase env vars missing.',
+      'NEXT_PUBLIC_SUPABASE_URL:', url ? 'SET' : 'MISSING',
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY:', key ? 'SET' : 'MISSING',
+    );
     return null;
   }
 
