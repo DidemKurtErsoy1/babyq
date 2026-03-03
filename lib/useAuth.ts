@@ -15,16 +15,27 @@ export function useAuth() {
       return;
     }
 
-    supa.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
+    supa.auth.getSession()
+      .then(({ data }) => {
+        setUser(data?.session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+
+    let subscription: { unsubscribe: () => void } | null = null;
+    try {
+      const result = supa.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
+      });
+      subscription = result.data.subscription;
+    } catch {
       setLoading(false);
-    });
+      return;
+    }
 
-    const { data: { subscription } } = supa.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   async function signIn(email: string, password: string) {

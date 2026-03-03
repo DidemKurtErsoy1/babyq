@@ -28,9 +28,13 @@ export function getSupabaseBrowser(): SupabaseClient | null {
   }
 
   // 4) Tek seferlik client oluştur
-  client = createClient(url, key, {
-    auth: { persistSession: true },
-  });
+  try {
+    client = createClient(url, key, {
+      auth: { persistSession: true },
+    });
+  } catch {
+    return null;
+  }
 
   return client;
 }
