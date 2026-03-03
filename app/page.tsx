@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from '../lib/useAuth';
 
 type ApiResp = {
   answer?: string;
@@ -38,6 +39,7 @@ function monthsBetween(birthISO: string) {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   const [age, setAge] = useState<string>('7');
   const [sex, setSex] = useState<'female' | 'male' | 'unknown'>('unknown');
   const [question, setQuestion] = useState<string>('');
@@ -89,6 +91,7 @@ export default function Home() {
       ageMonths: Number(age || 0),
       question: question.trim(),
       sex,
+      userId: user?.id ?? null,
     };
     setLastPayload(payload);
 

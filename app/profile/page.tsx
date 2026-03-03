@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../lib/useAuth';
+import { getSupabaseBrowser } from '../../lib/supabaseBrowser';
 
 type Profile = { baby_name: string; birth_date: string };
 const LS_KEY = 'babyq_profile_v1';
@@ -15,29 +17,67 @@ function monthsBetween(birthISO: string) {
 }
 
 export default function ProfilePage() {
+  const { user } = useAuth();
   const [babyName, setBabyName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [saved, setSaved] = useState(false);
+  const [cloudSaved, setCloudSaved] = useState(false);
 
+  // Load profile: Supabase if logged in, else localStorage
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const p = JSON.parse(raw) as Profile;
-        setBabyName(p.baby_name || '');
-        setBirthDate(p.birth_date || '');
+    async function load() {
+      if (user) {
+        const supa = getSupabaseBrowser();
+        if (supa) {
+          const { data } = await supa
+            .from('profiles')
+            .select('baby_name, birth_date')
+            .eq('id', user.id)
+            .single();
+          if (data) {
+            setBabyName(data.baby_name || '');
+            setBirthDate(data.birth_date || '');
+            return;
+          }
+        }
       }
-    } catch {}
-  }, []);
+      // Fallback: localStorage
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const p = JSON.parse(raw) as Profile;
+          setBabyName(p.baby_name || '');
+          setBirthDate(p.birth_date || '');
+        }
+      } catch {}
+    }
+    load();
+  }, [user]);
 
   const ageMonths = useMemo(() => monthsBetween(birthDate), [birthDate]);
 
-  function onSave(e: React.FormEvent) {
+  async function onSave(e: React.FormEvent) {
     e.preventDefault();
     const p: Profile = { baby_name: babyName.trim(), birth_date: birthDate };
+
+    // Always update localStorage for offline speed
     localStorage.setItem(LS_KEY, JSON.stringify(p));
+
+    if (user) {
+      const supa = getSupabaseBrowser();
+      if (supa) {
+        await supa.from('profiles').upsert({
+          id: user.id,
+          baby_name: p.baby_name,
+          birth_date: p.birth_date || null,
+          updated_at: new Date().toISOString(),
+        });
+        setCloudSaved(true);
+      }
+    }
+
     setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setTimeout(() => { setSaved(false); setCloudSaved(false); }, 2000);
   }
 
   const fieldBase = {
@@ -167,13 +207,15 @@ export default function ProfilePage() {
 
             {saved && (
               <div style={{ color: '#27AE60', fontWeight: 700, fontSize: 15 }}>
-                ✓ Profile saved!
+                {cloudSaved ? 'Profil hesabına kaydedildi ✓' : '✓ Profile saved!'}
               </div>
             )}
           </form>
 
           <p style={{ marginTop: 4, fontSize: 13, color: '#636E72', lineHeight: 1.6 }}>
-            Profile data is stored locally on this device and used to pre-fill the Ask page.
+            {user
+              ? 'Profil hesabınıza ve bu cihaza kaydedilmektedir.'
+              : 'Profile data is stored locally on this device and used to pre-fill the Ask page.'}
           </p>
         </section>
 

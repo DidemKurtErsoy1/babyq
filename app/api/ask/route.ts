@@ -230,6 +230,8 @@ export async function POST(req: Request) {
     // Tally webhook (opsiyonel)
     let ageMonths = Number(body?.ageMonths ?? 0);
     let question = (body?.question ?? '').toString();
+    const userId: string | null = body?.userId ?? null;
+    const sex: string | null = body?.sex ?? null;
     if ((!ageMonths || !question) && body?.data?.fields?.length) {
       const fields: any[] = body.data.fields;
       const ageField = fields.find(f => /age|yaş|yas/i.test(f?.key || f?.label));
@@ -263,8 +265,23 @@ export async function POST(req: Request) {
     // Acil kuralı
     const risk = evaluateRisk(ageMonths, question);
     if (risk.emergency) {
+      const urgentAnswer = `${L.urgentTitle}\n${L.urgentBody(risk.temp)}`;
+      if (userId) {
+        try {
+          const supa = supabaseServer();
+          await supa.from('questions').insert({
+            user_id: userId,
+            child_age_months: ageMonths,
+            text: question,
+            answer: urgentAnswer,
+            source: 'FALLBACK',
+            sex,
+            urgent: true,
+          });
+        } catch {}
+      }
       return NextResponse.json({
-        answer: `${L.urgentTitle}\n${L.urgentBody(risk.temp)}`,
+        answer: urgentAnswer,
         candidates: [],
         disclaimer: L.disclaimer,
         meta: { source: 'FALLBACK', llmUsed: false, llmError: null, provider: 'rules', matchedFaqs: 0, urgent: true }
@@ -272,12 +289,6 @@ export async function POST(req: Request) {
     }
 
     const urgent = detectUrgent(ageMonths, question);
-
-    // Soruyu kaydet (best-effort)
-    try {
-      const supa = supabaseServer();
-      await supa.from('questions').insert({ user_id: null, child_age_months: ageMonths, text: question });
-    } catch {}
 
     // FAQ bağlamı (en fazla 2)
     let faqs: Faq[] = [];
@@ -319,6 +330,20 @@ export async function POST(req: Request) {
       source = 'FALLBACK';
       answer = UI[lang].fallback;
     }
+
+    // Soruyu kaydet (best-effort)
+    try {
+      const supa = supabaseServer();
+      await supa.from('questions').insert({
+        user_id: userId,
+        child_age_months: ageMonths,
+        text: question,
+        answer,
+        source,
+        sex,
+        urgent,
+      });
+    } catch {}
 
     return NextResponse.json({
       answer,

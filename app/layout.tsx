@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Nunito } from "next/font/google";
 import "./globals.css";
 import SwRegister from "./sw-register";
+import NavClient from "./components/NavClient";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link className="nav-btn" href="/articles">Articles</Link>
               <Link className="nav-btn" href="/profile">Profile</Link>
               <Link className="nav-btn" href="/legal">Legal</Link>
+              <NavClient />
             </div>
           </nav>
         </header>
