@@ -18,7 +18,7 @@ Parents often turn to search engines at 2 a.m. with vague, anxious questions abo
 - **Three-tier answer resolution**: `RULES → FAQ → AI`, in that priority order:
   1. **Emergency rules** run first (age + temperature + red-flag keyword detection in TR/EN) and short-circuit straight to an urgent-care warning — no LLM round-trip, no delay.
   2. **FAQ matching** scores a Supabase-backed FAQ table by age range and keyword overlap.
-  3. **Gemini fallback chain** (`gemini-2.0-flash-lite` → `gemini-2.0-flash` → `gemini-2.5-flash`) generates a grounded answer using the top FAQ matches as context, with a shorter retry prompt if the first call fails.
+  3. **Gemini fallback chain** (`gemini-flash-lite-latest` → `gemini-flash-latest` → `gemini-pro-latest`, Google's self-updating model aliases) generates a grounded answer using the top FAQ matches as context, with a shorter retry prompt if the first call fails.
 - **Bilingual (TR/EN)** — auto language detection from input text (with `?lang=` override), covering UI copy, prompts, and disclaimers.
 - **Auth & history** — Supabase email/password auth; logged-in users get persisted question history and a baby profile (guests fall back to `localStorage`).
 - **Articles library** — static, editorially-written reference articles (fever, feeding, sleep, respiratory) with sources.
@@ -38,7 +38,7 @@ Parents often turn to search engines at 2 a.m. with vague, anxious questions abo
                               │
                               ▼
                     Google Gemini API
-              (flash-lite → flash → 2.5-flash)
+           (flash-lite-latest → flash-latest → pro-latest)
 ```
 
 - **`app/api/ask/route.ts`** — core decision logic: language detection, urgency/temperature parsing, FAQ scoring, Gemini calls with a resilient multi-model + retry chain, and best-effort persistence of every Q&A to Supabase.
@@ -55,7 +55,7 @@ Parents often turn to search engines at 2 a.m. with vague, anxious questions abo
 | Framework | Next.js 15 (App Router, Turbopack) |
 | UI | React 19, TypeScript, Tailwind CSS v4 |
 | Auth & DB | Supabase (Postgres, email/password auth) |
-| AI | Google Gemini (`gemini-2.0-flash-lite` / `flash` / `2.5-flash`) |
+| AI | Google Gemini (`flash-lite-latest` / `flash-latest` / `pro-latest`) |
 | Deployment | Vercel |
 | PWA | Web App Manifest + custom service worker |
 
@@ -69,8 +69,8 @@ Parents often turn to search engines at 2 a.m. with vague, anxious questions abo
 ### Setup
 
 ```bash
-git clone <this-repo>
-cd nextjs-boilerplate
+git clone https://github.com/DidemKurtErsoy1/babyq.git
+cd babyq
 npm install
 ```
 
@@ -89,7 +89,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-Expected Supabase tables: `faqs` (`age_min`, `age_max`, `category`, `question`, `answer`, `source`), `questions` (`user_id`, `child_age_months`, `text`, `answer`, `source`, `sex`, `urgent`), `feedback`, `profiles`.
+Run the SQL in [`supabase/migrations`](supabase/migrations) (in order) via the Supabase SQL Editor to create the `faqs`, `questions`, `feedback`, and `profiles` tables with Row Level Security policies, plus a small seed set of FAQs.
 
 ```bash
 npm run dev
