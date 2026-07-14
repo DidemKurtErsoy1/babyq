@@ -140,8 +140,11 @@ async function geminiGenerate(prompt: string) {
   const key = process.env.GEMINI_API_KEY!;
   if (!key) throw new Error('GEMINI_API_KEY yok');
 
-  const MODELS = ['gemini-2.0-flash-lite','gemini-2.0-flash','gemini-2.5-flash'];
+  // "-latest" aliases always point at Google's current recommended model,
+  // so this list doesn't need updating every time a dated model id is retired.
+  const MODELS = ['gemini-flash-lite-latest','gemini-flash-latest','gemini-pro-latest'];
 
+  let lastError: string | null = null;
   for (const model of MODELS) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     const res = await fetch(url, {
@@ -155,16 +158,15 @@ async function geminiGenerate(prompt: string) {
 
     const j = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg = j?.error?.message || `HTTP ${res.status}`;
-      if (/not\s+found|unsupported|permission/i.test(msg)) continue;
-      throw new Error(msg);
+      lastError = j?.error?.message || `HTTP ${res.status}`;
+      continue; // try the next model in the fallback chain
     }
     const parts = j?.candidates?.[0]?.content?.parts || [];
     const text  = parts.map((p:any)=>p?.text).filter(Boolean).join('\n').trim();
     if (text) return { text };
   }
 
-  throw new Error('no_model_available_or_empty');
+  throw new Error(lastError || 'no_model_available_or_empty');
 }
 
 async function askGeminiSmart(
