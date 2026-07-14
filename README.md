@@ -8,6 +8,16 @@
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/hero.png" width="49%" alt="BabyQ landing page" />
+  <img src="docs/screenshots/ask-answer.png" width="49%" alt="BabyQ Ask flow with an AI-generated answer" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/articles.png" width="60%" alt="BabyQ articles library" />
+</p>
+
+---
+
 ## Why this project
 
 Parents often turn to search engines at 2 a.m. with vague, anxious questions about a fever or a rash. BabyQ explores what a lightweight, safety-first triage layer could look like: deterministic rules catch red-flag symptoms first, a small FAQ dataset handles common questions cheaply, and an LLM only fills the gap for everything else — with a multi-model fallback chain so a single provider outage doesn't take the feature down.
