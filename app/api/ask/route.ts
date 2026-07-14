@@ -234,6 +234,7 @@ export async function POST(req: Request) {
     let question = (body?.question ?? '').toString();
     const userId: string | null = body?.userId ?? null;
     const sex: string | null = body?.sex ?? null;
+    const babyId: string | null = body?.babyId ?? null;
     if ((!ageMonths || !question) && body?.data?.fields?.length) {
       const fields: any[] = body.data.fields;
       const ageField = fields.find(f => /age|yaş|yas/i.test(f?.key || f?.label));
@@ -273,6 +274,7 @@ export async function POST(req: Request) {
           const supa = supabaseServer();
           await supa.from('questions').insert({
             user_id: userId,
+            baby_id: babyId,
             child_age_months: ageMonths,
             text: question,
             answer: urgentAnswer,
@@ -338,6 +340,7 @@ export async function POST(req: Request) {
       const supa = supabaseServer();
       await supa.from('questions').insert({
         user_id: userId,
+        baby_id: babyId,
         child_age_months: ageMonths,
         text: question,
         answer,

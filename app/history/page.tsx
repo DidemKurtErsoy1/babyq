@@ -14,6 +14,7 @@ type Question = {
   sex: string | null;
   urgent: boolean | null;
   created_at: string;
+  baby_id: string | null;
 };
 
 function SourceBadge({ source }: { source: string | null }) {
@@ -74,6 +75,7 @@ export default function HistoryPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [babyNames, setBabyNames] = useState<Record<string, string>>({});
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -93,8 +95,17 @@ export default function HistoryPage() {
     }
 
     supa
+      .from('babies')
+      .select('id, name')
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        (data || []).forEach((b: { id: string; name: string }) => { map[b.id] = b.name; });
+        setBabyNames(map);
+      });
+
+    supa
       .from('questions')
-      .select('id, text, answer, source, child_age_months, sex, urgent, created_at')
+      .select('id, text, answer, source, child_age_months, sex, urgent, created_at, baby_id')
       .order('created_at', { ascending: false })
       .limit(50)
       .then(({ data, error }) => {
@@ -225,8 +236,10 @@ export default function HistoryPage() {
               </div>
 
               {/* Meta */}
-              {(q.child_age_months !== null || q.sex) && (
+              {(q.baby_id || q.child_age_months !== null || q.sex) && (
                 <div style={{ fontSize: 13, color: '#636E72' }}>
+                  {q.baby_id && babyNames[q.baby_id] && <span>👶 {babyNames[q.baby_id]}</span>}
+                  {q.baby_id && babyNames[q.baby_id] && q.child_age_months !== null && <span> · </span>}
                   {q.child_age_months !== null && <span>Age: {q.child_age_months} mo</span>}
                   {q.child_age_months !== null && q.sex && <span> · </span>}
                   {q.sex && <span>Gender: {q.sex}</span>}

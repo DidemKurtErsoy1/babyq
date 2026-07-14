@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../lib/useAuth';
+import { getSupabaseBrowser } from '../lib/supabaseBrowser';
 
 /* ── Types ── */
 type ApiResp = {
@@ -29,6 +30,13 @@ const badgeFor = (src?: 'AI' | 'FAQ' | 'FALLBACK', provider?: string) => {
   if (src === 'AI')  return { emoji: '🤖', label: `AI · ${provider ?? 'LLM'}` };
   if (src === 'FAQ') return { emoji: '📚', label: 'FAQ' };
   return { emoji: '🛟', label: 'Fallback' };
+};
+
+type Baby = {
+  id: string;
+  name: string;
+  birth_date: string;
+  sex: 'female' | 'male' | 'unknown';
 };
 
 function monthsBetween(birthISO: string) {
@@ -62,20 +70,52 @@ export default function Home() {
   const [copied,    setCopied]    = useState(false);
   const [feedback,  setFeedback]  = useState<null | 'sent'>(null);
   const [showChips, setShowChips] = useState(false);
+  const [babies,    setBabies]    = useState<Baby[]>([]);
+  const [selectedBabyId, setSelectedBabyId] = useState<string | null>(null);
 
   const answerRef = useRef<HTMLElement>(null);
   const formRef   = useRef<HTMLElement>(null);
 
-  /* Profile → age auto-fill */
+  function pickBaby(b: Baby) {
+    setSelectedBabyId(b.id);
+    setAge(String(monthsBetween(b.birth_date)));
+    setSex(b.sex);
+  }
+
+  /* Saved babies → quick-select + age auto-fill */
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('babyq_profile_v1');
-      if (!raw) return;
-      const p = JSON.parse(raw) as { birth_date?: string };
-      if (!p?.birth_date) return;
-      setAge(String(monthsBetween(p.birth_date)));
-    } catch {}
-  }, []);
+    async function load() {
+      let loaded: Baby[] = [];
+      if (user) {
+        const supa = getSupabaseBrowser();
+        if (supa) {
+          const { data } = await supa
+            .from('babies')
+            .select('id, name, birth_date, sex')
+            .order('created_at', { ascending: true });
+          loaded = (data as Baby[]) || [];
+        }
+      } else {
+        try {
+          const raw = localStorage.getItem('babyq_babies_v1');
+          if (raw) loaded = JSON.parse(raw);
+        } catch {}
+        if (loaded.length === 0) {
+          // Pre-multi-baby localStorage shape
+          try {
+            const legacyRaw = localStorage.getItem('babyq_profile_v1');
+            if (legacyRaw) {
+              const p = JSON.parse(legacyRaw) as { baby_name?: string; birth_date?: string };
+              if (p?.birth_date) setAge(String(monthsBetween(p.birth_date)));
+            }
+          } catch {}
+        }
+      }
+      setBabies(loaded);
+      if (loaded.length === 1) pickBaby(loaded[0]);
+    }
+    load();
+  }, [user]);
 
   /* URL params */
   const showDebug = useMemo(() => {
@@ -106,6 +146,9 @@ export default function Home() {
       question:  question.trim(),
       sex,
       userId:    user?.id ?? null,
+      // Guest-saved babies only exist in localStorage, not in the babies
+      // table, so their id would violate questions.baby_id's foreign key.
+      babyId:    user ? selectedBabyId : null,
     };
     setLastPayload(payload);
 
@@ -369,6 +412,52 @@ export default function Home() {
 
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 26 }}>
 
+            {/* ── Baby quick-select ── */}
+            {babies.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
+                  Who&apos;s this about?
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {babies.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => pickBaby(b)}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 999,
+                        border: selectedBabyId === b.id ? '1.5px solid #40916C' : '1.5px solid #E5E7EB',
+                        background: selectedBabyId === b.id ? '#ECFDF5' : '#fff',
+                        color: selectedBabyId === b.id ? '#1E5E3A' : '#374151',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {b.name} · {monthsBetween(b.birth_date)}mo
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBabyId(null)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 999,
+                      border: selectedBabyId === null ? '1.5px solid #40916C' : '1.5px solid #E5E7EB',
+                      background: selectedBabyId === null ? '#ECFDF5' : '#fff',
+                      color: selectedBabyId === null ? '#1E5E3A' : '#374151',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Someone else
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ── Age slider ── */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -393,7 +482,7 @@ export default function Home() {
                 max={60}
                 step={1}
                 value={age}
-                onChange={(e) => setAge(e.target.value)}
+                onChange={(e) => { setAge(e.target.value); setSelectedBabyId(null); }}
                 className="age-slider"
                 style={{ '--slider-pct': sliderPct } as React.CSSProperties}
                 aria-label={`Baby's age: ${ageLabel}`}
