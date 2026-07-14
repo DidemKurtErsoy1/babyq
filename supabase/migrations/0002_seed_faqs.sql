@@ -1,0 +1,38 @@
+-- BabyQ FAQ seed data
+-- 8 curated entries across fever, feeding, sleep, respiratory categories,
+-- covering the 0-24 month range the app targets.
+-- Run after 0001_init_schema.sql, in Supabase Dashboard -> SQL Editor.
+
+insert into public.faqs (age_min, age_max, category, question, answer, source) values
+(0, 3, 'fever',
+ '0–3 aylık bebekte ateş ne zaman acildir?',
+ E'• 0–3 aylık bebekte 38.0°C ve üzeri ateş her zaman acil kabul edilir.\n• Bu yaş grubunda evde bekleme yapılmaz; en kısa sürede sağlık kuruluşuna başvurun.\n• Halsizlik, emmeme veya solunum sıkıntısı eşlik ediyorsa gecikmeden gidin.',
+ 'Özet kaynak'),
+(6, 9, 'fever',
+ 'Bebekte 38.2°C ateş olursa ne yapmalı?',
+ E'• Sakin kalın ve ince giydirin.\n• Bol sıvı verin, genel durumunu izleyin.\n• 24–48 saatte düzelmezse veya genel durum bozulursa sağlık kuruluşuna başvurun.',
+ 'Özet kaynak'),
+(0, 6, 'feeding',
+ 'Anne sütü yetersiz mi, nasıl anlarım?',
+ E'• Günde 6+ ıslak bez, düzenli kilo alımı yeterli beslenme işaretidir.\n• Sürekli huzursuzluk tek başına yetersizlik göstergesi değildir.\n• Kilo alımı yavaşsa veya bez sayısı azsa bir sağlık profesyoneline danışın.',
+ 'Özet kaynak'),
+(6, 9, 'feeding',
+ '6–9 ay ek gıdaya başlangıç nasıl olmalı?',
+ E'• Tek bileşenli pürelerle başlayın; 3 gün kuralı uygulayın.\n• Alerji belirtilerini izleyin (döküntü, kusma, nefes darlığı).\n• Anne sütü/formül ana besindir, ek gıda tamamlayıcıdır.',
+ 'Özet kaynak'),
+(0, 3, 'sleep',
+ '0–3 ay uyku çok düzensizse?',
+ E'• Kısa sık uykular normaldir; gündüz/gece ayrımı için loş ortam.\n• Beslenme ve alt değişiminden sonra rahatlatın.\n• Solunum sıkıntısı veya bilinç değişikliği varsa acil değerlendirme gerekir.',
+ 'Özet kaynak'),
+(6, 12, 'sleep',
+ '6–12 aylık bebek gece sık uyanıyor, normal mi?',
+ E'• Bu yaşta gece uyanmaları (diş çıkarma, ayrılık kaygısı) sık görülür ve genelde normaldir.\n• Tutarlı bir uyku rutini (banyo, kitap, loş ışık) geçişi kolaylaştırır.\n• Uyku sırasında solunum durması, morarma gibi belirtiler varsa doktora danışın.',
+ 'Özet kaynak'),
+(0, 6, 'respiratory',
+ 'Bebekte hırıltılı solunum ne zaman tehlikeli?',
+ E'• Göğüs veya boyun çukurunun içe çekilmesi, burun kanatlarının açılıp kapanması acil belirtidir.\n• Dudak/tırnaklarda morarma varsa hemen acil servise gidin.\n• Hafif hırıltı beslenmeyi ve uykuyu etkilemiyorsa yakından izlenebilir.',
+ 'Özet kaynak'),
+(6, 24, 'respiratory',
+ 'Öksürük ve burun akıntısı ne zaman doktora götürülmeli?',
+ E'• 3 günden uzun süren yüksek ateşle birlikte öksürük değerlendirme gerektirir.\n• Hızlı/zorlu solunum, iştahsızlık veya uyku bozulması varsa aynı gün başvurun.\n• Berrak burun akıntısı ve hafif öksürük genelde birkaç günde kendiliğinden geçer.',
+ 'Özet kaynak');
