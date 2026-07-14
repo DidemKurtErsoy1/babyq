@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseBrowser } from './supabaseBrowser';
+import { getPostHog } from './posthog';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -28,6 +29,9 @@ export function useAuth() {
     try {
       const result = supa.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
+        if (session?.user) {
+          getPostHog()?.identify(session.user.id, { email: session.user.email });
+        }
       });
       subscription = result.data.subscription;
     } catch {
@@ -48,8 +52,12 @@ export function useAuth() {
   async function signUp(email: string, password: string) {
     const supa = getSupabaseBrowser();
     if (!supa) throw new Error('Supabase not configured');
-    const { error } = await supa.auth.signUp({ email, password });
+    const { data, error } = await supa.auth.signUp({ email, password });
     if (error) throw error;
+    if (data?.user) {
+      getPostHog()?.identify(data.user.id, { email: data.user.email });
+      getPostHog()?.capture('signup_completed');
+    }
   }
 
   async function signOut() {

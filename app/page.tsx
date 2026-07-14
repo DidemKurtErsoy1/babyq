@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../lib/useAuth';
 import { getSupabaseBrowser } from '../lib/supabaseBrowser';
+import { getPostHog } from '../lib/posthog';
 
 /* ── Types ── */
 type ApiResp = {
@@ -75,6 +76,7 @@ export default function Home() {
 
   const answerRef = useRef<HTMLElement>(null);
   const formRef   = useRef<HTMLElement>(null);
+  const askStartedRef = useRef(false);
 
   function pickBaby(b: Baby) {
     setSelectedBabyId(b.id);
@@ -162,6 +164,13 @@ export default function Home() {
       const j = (await r.json()) as ApiResp;
       if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
+      getPostHog()?.capture('answer_received', {
+        source: j.meta?.source,
+        provider: j.meta?.provider,
+        urgent: j.meta?.urgent,
+        has_baby: !!selectedBabyId,
+        signed_in: !!user,
+      });
       setTimeout(() => answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (err: any) {
       setError(err?.message || 'Something went wrong.');
@@ -535,7 +544,14 @@ export default function Home() {
                 id="q"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                onFocus={(e) => { focusField(e); setShowChips(true); }}
+                onFocus={(e) => {
+                  focusField(e);
+                  setShowChips(true);
+                  if (!askStartedRef.current) {
+                    askStartedRef.current = true;
+                    getPostHog()?.capture('ask_started');
+                  }
+                }}
                 onBlur={blurField}
                 rows={5}
                 placeholder="Describe what you're noticing…"
