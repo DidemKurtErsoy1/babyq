@@ -70,7 +70,9 @@ export default function Home() {
   const [lastPayload, setLastPayload] = useState<any>(null);
   const [copied,    setCopied]    = useState(false);
   const [feedback,  setFeedback]  = useState<null | 'sent'>(null);
-  const [showChips, setShowChips] = useState(false);
+  // Visible from the start (not gated behind a textarea focus) so a curious
+  // visitor can try a one-tap example without typing anything first.
+  const [showChips, setShowChips] = useState(true);
   const [babies,    setBabies]    = useState<Baby[]>([]);
   const [selectedBabyId, setSelectedBabyId] = useState<string | null>(null);
 
