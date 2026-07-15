@@ -162,7 +162,9 @@ export default function Home() {
         body: JSON.stringify(payload),
       });
       const j = (await r.json()) as ApiResp;
-      if (!r.ok) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
+      // The API returns HTTP 400 with a friendly `answer` (e.g. "question too short")
+      // for pre-checks that aren't real errors — only throw when there's no answer to show.
+      if (!r.ok && !j?.answer) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
       getPostHog()?.capture('answer_received', {
         source: j.meta?.source,
