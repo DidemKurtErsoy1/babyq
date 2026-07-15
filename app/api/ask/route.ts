@@ -71,9 +71,29 @@ function detectLang(text: string, req: Request): 'TR' | 'EN' {
   const override = url.searchParams.get('lang');
   if (override?.toLowerCase() === 'tr') return 'TR';
   if (override?.toLowerCase() === 'en') return 'EN';
+
   const s = (text || '').toLowerCase();
-  const trHints = ['ç','ğ','ı','ö','ş','ü','ateş','öksür','ishal','kus','bebek','ay','derece'];
-  if (trHints.some(h => s.includes(h))) return 'TR';
+
+  // Turkish diacritics are the strongest signal, when present.
+  if (/[çğışöü]/.test(s)) return 'TR';
+
+  // Turkish present-continuous (-yor) and question-particle (mi/mı/mu/mü)
+  // suffixes are distinctive and survive even when diacritics are dropped
+  // (very common in fast, informal typing — e.g. "agliyor", "iyi mi").
+  if (/\w*(yor|iyor|uyor)\b/.test(s)) return 'TR';
+  if (/\b(mi|mı|mu|mü)\b/.test(s)) return 'TR';
+
+  // Common Turkish words, ASCII-folded so they still match without diacritics.
+  const trWords = [
+    'bugun','dun','yarin','simdi','cok','az','gibi','kadar','sonra','once',
+    'neden','niye','nasil','kac','degil','var','yok','oldu','olur','yapti',
+    'yedi','icti','uyudu','uyumadi','agladi','hasta','doktor','bebek',
+    'bebegim','cocugum','kizim','oglum','endiseliyim','yardim','lutfen',
+    'tesekkur','merhaba','selam','ay','ates','oksur','ishal','kus',
+    'bir','bu','su','ve','veya','ile','icin','ama','fakat',
+  ];
+  if (trWords.some(w => new RegExp(`\\b${w}\\b`).test(s))) return 'TR';
+
   return 'EN';
 }
 
