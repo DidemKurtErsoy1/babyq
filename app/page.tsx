@@ -28,9 +28,9 @@ const cleanAnswer = (s: string) =>
   (s || '').replace(/^🔹 AI\n|^🔸 FAQ\n|^🔺 Fallback\n/, '');
 
 const badgeFor = (src?: 'AI' | 'FAQ' | 'FALLBACK', provider?: string) => {
-  if (src === 'AI')  return { emoji: '🤖', label: `AI · ${provider ?? 'LLM'}` };
-  if (src === 'FAQ') return { emoji: '📚', label: 'FAQ' };
-  return { emoji: '🛟', label: 'Fallback' };
+  if (src === 'AI')  return { emoji: '🤖', label: `AI · ${provider ?? 'LLM'}`, cls: 'badge-gold' };
+  if (src === 'FAQ') return { emoji: '📚', label: 'FAQ', cls: 'badge-accent' };
+  return { emoji: '🛟', label: 'Fallback', cls: 'badge-neutral' };
 };
 
 type Baby = {
@@ -199,41 +199,16 @@ export default function Home() {
   const sliderPct = `${Math.round((Math.max(0, Math.min(60, Number(age))) / 60) * 100)}%`;
   const ageLabel  = age === '0' ? 'Newborn' : `${age} ${age === '1' ? 'month' : 'months'}`;
 
-  /* ── Input focus helpers ── */
-  function focusField(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    e.currentTarget.style.borderColor = '#40916C';
-    e.currentTarget.style.boxShadow   = '0 0 0 3px rgba(64,145,108,0.18)';
-  }
-  function blurField(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    e.currentTarget.style.borderColor = '#E5E7EB';
-    e.currentTarget.style.boxShadow   = 'none';
-  }
-
-  /* ── Shared field style ── */
-  const fieldStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '14px 16px',
-    background: '#fff',
-    color: '#111827',
-    border: '1.5px solid #E5E7EB',
-    borderRadius: 12,
-    outline: 'none',
-    fontFamily: 'inherit',
-    fontSize: 15,
-    lineHeight: 1.55,
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-  };
-
   return (
-    <main style={{ background: '#F8F9FA', minHeight: '100vh' }}>
+    <main className="page-shell">
 
       {/* ═══════════════════════════════════════
           HERO
       ═══════════════════════════════════════ */}
       <section className="hero">
         {/* glow orbs */}
-        <div className="hero-orb" style={{ width: 420, height: 420, top: -120, left: -80, background: 'radial-gradient(circle, #52b788 0%, transparent 70%)' }} />
-        <div className="hero-orb" style={{ width: 360, height: 360, bottom: -140, right: 40, background: 'radial-gradient(circle, #2d6a4f 0%, transparent 70%)' }} />
+        <div className="hero-orb" style={{ width: 420, height: 420, top: -120, left: -80, background: 'radial-gradient(circle, #3a9068 0%, transparent 70%)' }} />
+        <div className="hero-orb" style={{ width: 360, height: 360, bottom: -140, right: 40, background: 'radial-gradient(circle, #B8863B 0%, transparent 70%)' }} />
 
         <div style={{
           maxWidth: 1100,
@@ -250,7 +225,7 @@ export default function Home() {
             <div className="glass-chip" style={{ marginBottom: 26 }}>
               <span style={{
                 width: 7, height: 7, borderRadius: '50%',
-                background: '#74c69d', boxShadow: '0 0 0 3px rgba(116,198,157,0.25)',
+                background: '#F3D99B', boxShadow: '0 0 0 3px rgba(243,217,155,0.25)',
                 display: 'inline-block',
               }} />
               Trusted pediatric Q&amp;A
@@ -286,7 +261,7 @@ export default function Home() {
                   alignItems: 'center',
                   gap: 8,
                   padding: '16px 32px',
-                  background: 'linear-gradient(135deg, #52b788 0%, #40916C 100%)',
+                  background: 'linear-gradient(135deg, #3a9068 0%, #2F7A57 100%)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: 12,
@@ -294,11 +269,11 @@ export default function Home() {
                   fontWeight: 700,
                   fontSize: 16,
                   fontFamily: 'inherit',
-                  boxShadow: '0 10px 30px rgba(64,145,108,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
+                  boxShadow: '0 10px 30px rgba(47,122,87,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
                   transition: 'transform 0.15s ease, box-shadow 0.2s ease',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(64,145,108,0.55), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(64,145,108,0.45), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(47,122,87,0.55), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(47,122,87,0.45), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
               >
                 Get instant answers →
               </button>
@@ -332,14 +307,10 @@ export default function Home() {
               {/* floating mini answer card */}
               <div className="hero-float-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: 800, letterSpacing: 0.3,
-                    color: '#1E5E3A', background: '#E2F5EC',
-                    padding: '3px 8px', borderRadius: 999,
-                  }}>🤖 AI</span>
-                  <span style={{ fontSize: 11.5, color: '#9CA3AF', fontWeight: 600 }}>7 mo · fever</span>
+                  <span className="badge badge-gold">🤖 AI</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--ink-tertiary)', fontWeight: 600 }}>7 mo · fever</span>
                 </div>
-                <div style={{ fontSize: 12.5, color: '#374151', lineHeight: 1.5 }}>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-secondary)', lineHeight: 1.5 }}>
                   Keep them lightly dressed, offer fluids often, and watch how they’re acting…
                 </div>
               </div>
@@ -352,8 +323,8 @@ export default function Home() {
           TRUST STRIP
       ═══════════════════════════════════════ */}
       <div style={{
-        background: '#fff',
-        borderBottom: '1px solid #E5E7EB',
+        background: 'var(--surface)',
+        borderBottom: '1px solid var(--border)',
         padding: '13px 24px',
       }}>
         <div style={{
@@ -366,12 +337,12 @@ export default function Home() {
           flexWrap: 'wrap',
           fontSize: 13,
           fontWeight: 500,
-          color: '#374151',
+          color: 'var(--ink-secondary)',
         }}>
           <span>🔒 Not medical advice</span>
-          <span style={{ color: '#D1D5DB', userSelect: 'none' }}>•</span>
+          <span style={{ color: 'var(--border-strong)', userSelect: 'none' }}>•</span>
           <span>✓ Pediatric-backed</span>
-          <span style={{ color: '#D1D5DB', userSelect: 'none' }}>•</span>
+          <span style={{ color: 'var(--border-strong)', userSelect: 'none' }}>•</span>
           <span>🌍 TR/EN bilingual</span>
         </div>
       </div>
@@ -398,43 +369,24 @@ export default function Home() {
           }}
         >
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 6px', color: '#111827' }}>
+            <h2 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 6px', color: 'var(--ink)' }}>
               Ask BabyQ
             </h2>
-            <p style={{ fontSize: 15, color: '#6B7280', margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink-secondary)', margin: 0, lineHeight: 1.5 }}>
               Short, parent-friendly answers. Not medical advice.
             </p>
           </div>
 
           {/* Disclaimer banner */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '11px 14px',
-            background: '#FFFBEB',
-            border: '1px solid #FDE68A',
-            borderRadius: 10,
-            fontSize: 13,
-            color: '#92400E',
-            marginBottom: 28,
-          }}>
+          <div className="alert alert-warn" style={{ marginBottom: 28 }}>
             <span style={{ fontSize: 15 }}>⚠️</span>
             <span>Not a substitute for professional medical advice. In emergencies call your local emergency number.</span>
           </div>
 
           {/* Error */}
           {error && (
-            <div role="alert" style={{
-              padding: '12px 16px',
-              background: '#FEF2F2',
-              border: '1px solid #FECACA',
-              borderRadius: 10,
-              color: '#B91C1C',
-              fontSize: 14,
-              marginBottom: 24,
-            }}>
-              <strong>Error:</strong> {error}
+            <div role="alert" className="alert alert-danger" style={{ marginBottom: 24 }}>
+              <strong>Error:</strong>&nbsp;{error}
             </div>
           )}
 
@@ -443,25 +395,14 @@ export default function Home() {
             {/* ── Baby quick-select ── */}
             {babies.length > 0 && (
               <div>
-                <label style={{ display: 'block', fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
-                  Who&apos;s this about?
-                </label>
+                <label className="field-label">Who&apos;s this about?</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {babies.map((b) => (
                     <button
                       key={b.id}
                       type="button"
                       onClick={() => pickBaby(b)}
-                      style={{
-                        padding: '8px 16px',
-                        borderRadius: 999,
-                        border: selectedBabyId === b.id ? '1.5px solid #40916C' : '1.5px solid #E5E7EB',
-                        background: selectedBabyId === b.id ? '#ECFDF5' : '#fff',
-                        color: selectedBabyId === b.id ? '#1E5E3A' : '#374151',
-                        fontWeight: 700,
-                        fontSize: 14,
-                        cursor: 'pointer',
-                      }}
+                      className={`chip ${selectedBabyId === b.id ? 'chip-active' : ''}`}
                     >
                       {b.name} · {monthsBetween(b.birth_date)}mo
                     </button>
@@ -469,16 +410,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setSelectedBabyId(null)}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 999,
-                      border: selectedBabyId === null ? '1.5px solid #40916C' : '1.5px solid #E5E7EB',
-                      background: selectedBabyId === null ? '#ECFDF5' : '#fff',
-                      color: selectedBabyId === null ? '#1E5E3A' : '#374151',
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: 'pointer',
-                    }}
+                    className={`chip ${selectedBabyId === null ? 'chip-active' : ''}`}
                   >
                     Someone else
                   </button>
@@ -489,20 +421,8 @@ export default function Home() {
             {/* ── Age slider ── */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <label style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>
-                  Baby&apos;s age
-                </label>
-                <span style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: '#40916C',
-                  background: '#ECFDF5',
-                  border: '1px solid #A7F3D0',
-                  padding: '3px 12px',
-                  borderRadius: 999,
-                }}>
-                  {ageLabel}
-                </span>
+                <label className="field-label" style={{ marginBottom: 0 }}>Baby&apos;s age</label>
+                <span className="badge badge-accent">{ageLabel}</span>
               </div>
               <input
                 type="range"
@@ -519,7 +439,7 @@ export default function Home() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 fontSize: 12,
-                color: '#9CA3AF',
+                color: 'var(--ink-tertiary)',
                 marginTop: 6,
               }}>
                 <span>Newborn</span>
@@ -529,19 +449,15 @@ export default function Home() {
 
             {/* ── Sex ── */}
             <div>
-              <label htmlFor="sex" style={{ display: 'block', fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                Baby&apos;s sex
-              </label>
+              <label htmlFor="sex" className="field-label">Baby&apos;s sex</label>
               <select
                 id="sex"
                 value={sex}
                 onChange={(e) => setSex(e.target.value as 'female' | 'male' | 'unknown')}
-                onFocus={focusField}
-                onBlur={blurField}
+                className="input"
                 style={{
-                  ...fieldStyle,
                   appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235B6B60' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: 'right 14px center',
                   paddingRight: 40,
@@ -556,25 +472,21 @@ export default function Home() {
 
             {/* ── Question ── */}
             <div>
-              <label htmlFor="q" style={{ display: 'block', fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                What&apos;s your concern?
-              </label>
+              <label htmlFor="q" className="field-label">What&apos;s your concern?</label>
               <textarea
                 id="q"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                onFocus={(e) => {
-                  focusField(e);
+                onFocus={() => {
                   setShowChips(true);
                   if (!askStartedRef.current) {
                     askStartedRef.current = true;
                     getPostHog()?.capture('ask_started');
                   }
                 }}
-                onBlur={blurField}
                 rows={5}
                 placeholder="Describe what you're noticing…"
-                style={{ ...fieldStyle, resize: 'vertical', minHeight: 148 }}
+                className="textarea"
                 required
               />
 
@@ -588,23 +500,8 @@ export default function Home() {
                       onClick={() =>
                         setQuestion((q) => q.trim() ? `${q.trimEnd()} ${c.label}` : c.label)
                       }
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '6px 14px',
-                        background: '#ECFDF5',
-                        border: '1px solid #A7F3D0',
-                        borderRadius: 999,
-                        cursor: 'pointer',
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: '#065F46',
-                        fontFamily: 'inherit',
-                        transition: 'background 0.12s ease',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = '#D1FAE5'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = '#ECFDF5'; }}
+                      className="chip"
+                      style={{ fontSize: 13, padding: '6px 14px' }}
                     >
                       {c.emoji} {c.label}
                     </button>
@@ -617,25 +514,8 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading || !question.trim()}
-              className="submit-btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '15px 30px',
-                background: loading ? '#9CA3AF' : '#40916C',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 10,
-                cursor: (loading || !question.trim()) ? 'not-allowed' : 'pointer',
-                fontWeight: 700,
-                fontSize: 16,
-                fontFamily: 'inherit',
-                opacity: (loading || !question.trim()) ? 0.6 : 1,
-                transition: 'background 0.15s ease, transform 0.1s ease',
-                boxShadow: loading ? 'none' : '0 2px 10px rgba(64,145,108,0.32)',
-              }}
+              className="btn submit-btn"
+              style={{ fontSize: 16, padding: '15px 30px' }}
             >
               {loading ? 'Preparing…' : '✨ Get answer'}
             </button>
@@ -644,12 +524,12 @@ export default function Home() {
 
         {/* ── LOADING (footprints) ── */}
         {loading && (
-          <div style={{
+          <div className="card" style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: 14,
-            padding: '36px 0',
+            padding: '40px 0',
           }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               {[0, 1, 2].map((i) => (
@@ -666,7 +546,7 @@ export default function Home() {
                 </span>
               ))}
             </div>
-            <p style={{ fontSize: 14, color: '#6B7280', margin: 0, fontWeight: 500 }}>
+            <p style={{ fontSize: 14, color: 'var(--ink-secondary)', margin: 0, fontWeight: 500 }}>
               Preparing your answer…
             </p>
           </div>
@@ -676,40 +556,27 @@ export default function Home() {
         {resp && !loading && (
           <section
             ref={answerRef}
+            className="card fade-in-up"
             style={{
-              background: '#fff',
-              borderRadius: 16,
-              borderTop:    '1px solid #E5E7EB',
-              borderRight:  '1px solid #E5E7EB',
-              borderBottom: '1px solid #E5E7EB',
-              borderLeft:   isUrgent ? '5px solid #DC2626' : '5px solid #40916C',
+              borderLeft: isUrgent ? '5px solid var(--danger)' : '5px solid var(--accent)',
               boxShadow: isUrgent
-                ? '0 4px 24px rgba(220,38,38,0.12)'
-                : '0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)',
+                ? '0 4px 24px rgba(194,59,59,0.14)'
+                : 'var(--shadow-card)',
               padding: '32px 32px 28px',
               animation: isUrgent
-                ? 'shake 0.55s ease-in-out, fadeInUp 0.3s ease'
-                : 'fadeInUp 0.3s ease',
+                ? 'shake 0.55s ease-in-out, fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
+                : undefined,
             }}
           >
             {/* Urgent banner */}
             {isUrgent && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                padding: '14px 18px',
-                background: '#FEF2F2',
-                border: '1px solid #FECACA',
-                borderRadius: 12,
-                marginBottom: 24,
-              }}>
+              <div className="alert alert-urgent" style={{ marginBottom: 24 }}>
                 <span style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>⚠️</span>
                 <div>
-                  <strong style={{ color: '#B91C1C', fontSize: 15, display: 'block', marginBottom: 3 }}>
+                  <strong style={{ color: '#7A2323', fontSize: 15, display: 'block', marginBottom: 3 }}>
                     This looks urgent — call emergency services
                   </strong>
-                  <span style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 1.5 }}>
+                  <span style={{ fontSize: 13, lineHeight: 1.5 }}>
                     Please contact your local emergency number or visit the nearest healthcare facility immediately.
                   </span>
                 </div>
@@ -718,18 +585,7 @@ export default function Home() {
 
             {/* Header: source badge + copy */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '4px 12px',
-                borderRadius: 999,
-                background: '#ECFDF5',
-                border: '1px solid #A7F3D0',
-                color: '#065F46',
-                fontSize: 12,
-                fontWeight: 600,
-              }}>
+              <span className={`badge ${srcBadge.cls}`}>
                 {srcBadge.emoji} {srcBadge.label}
               </span>
 
@@ -741,44 +597,33 @@ export default function Home() {
                     setTimeout(() => setCopied(false), 1500);
                   } catch {}
                 }}
-                style={{
-                  marginLeft: 'auto',
-                  padding: '5px 14px',
-                  borderRadius: 999,
-                  border: '1px solid #E5E7EB',
-                  background: '#F9FAFB',
-                  color: '#374151',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  fontFamily: 'inherit',
-                  transition: 'background 0.12s ease',
-                }}
+                className="btn-ghost"
+                style={{ marginLeft: 'auto', padding: '6px 16px', fontSize: 13 }}
               >
                 {copied ? '✅ Copied' : 'Copy answer'}
               </button>
             </div>
 
             {/* Answer heading + body */}
-            <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px', color: '#111827' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px', color: 'var(--ink)' }}>
               Answer
             </h3>
             <div style={{
               whiteSpace: 'pre-wrap',
               lineHeight: 1.78,
               fontSize: 15,
-              color: '#374151',
+              color: 'var(--ink-secondary)',
               padding: '18px 20px',
-              background: '#F9FAFB',
-              borderRadius: 10,
-              border: '1px solid #E5E7EB',
+              background: 'var(--surface-sunken)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
             }}>
               {cleanAnswer(resp.answer || '')}
             </div>
 
             {/* Disclaimer */}
             {resp?.disclaimer && (
-              <p style={{ marginTop: 14, fontSize: 13, color: '#6B7280', lineHeight: 1.6 }}>
+              <p style={{ marginTop: 14, fontSize: 13, color: 'var(--ink-tertiary)', lineHeight: 1.6 }}>
                 {resp.disclaimer}
               </p>
             )}
@@ -787,37 +632,31 @@ export default function Home() {
             <div style={{
               marginTop: 22,
               paddingTop: 16,
-              borderTop: '1px solid #F3F4F6',
+              borderTop: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
               gap: 10,
             }}>
               {feedback === 'sent' ? (
-                <span style={{ fontSize: 14, color: '#40916C', fontWeight: 600 }}>
+                <span style={{ fontSize: 14, color: 'var(--accent-strong)', fontWeight: 600 }}>
                   Thank you! 🙏
                 </span>
               ) : (
                 <>
-                  <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink-secondary)', fontWeight: 500 }}>
                     Was this answer helpful?
                   </span>
                   <button
                     onClick={() => sendFeedback(true)}
                     aria-label="Yes, it was helpful"
-                    style={{
-                      padding: '5px 14px', borderRadius: 999,
-                      border: '1px solid #A7F3D0', background: '#ECFDF5',
-                      color: '#065F46', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit',
-                    }}
+                    className="chip"
+                    style={{ padding: '5px 14px', fontSize: 16 }}
                   >👍</button>
                   <button
                     onClick={() => sendFeedback(false)}
                     aria-label="No, it wasn't helpful"
-                    style={{
-                      padding: '5px 14px', borderRadius: 999,
-                      border: '1px solid #E5E7EB', background: '#F9FAFB',
-                      color: '#6B7280', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit',
-                    }}
+                    className="chip"
+                    style={{ padding: '5px 14px', fontSize: 16 }}
                   >👎</button>
                 </>
               )}
@@ -826,7 +665,7 @@ export default function Home() {
             {/* Sources */}
             {showSources && resp.candidates?.length ? (
               <details style={{ marginTop: 20 }}>
-                <summary style={{ fontWeight: 600, color: '#374151', cursor: 'pointer', fontSize: 14 }}>
+                <summary style={{ fontWeight: 600, color: 'var(--ink-secondary)', cursor: 'pointer', fontSize: 14 }}>
                   Sources ({resp.candidates.length})
                 </summary>
                 <ul style={{ marginTop: 10, paddingLeft: 18, display: 'grid', gap: 8 }}>
@@ -846,11 +685,11 @@ export default function Home() {
             {showDebug && (
               <>
                 <details style={{ marginTop: 14 }}>
-                  <summary style={{ fontSize: 13, cursor: 'pointer', color: '#6B7280' }}>Debug (meta)</summary>
+                  <summary style={{ fontSize: 13, cursor: 'pointer', color: 'var(--ink-tertiary)' }}>Debug (meta)</summary>
                   <pre style={{ marginTop: 8 }}>{JSON.stringify(resp.meta, null, 2)}</pre>
                 </details>
                 <details style={{ marginTop: 8 }}>
-                  <summary style={{ fontSize: 13, cursor: 'pointer', color: '#6B7280' }}>Sent payload</summary>
+                  <summary style={{ fontSize: 13, cursor: 'pointer', color: 'var(--ink-tertiary)' }}>Sent payload</summary>
                   <pre style={{ marginTop: 8 }}>{JSON.stringify(lastPayload, null, 2)}</pre>
                 </details>
               </>

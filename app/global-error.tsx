@@ -9,16 +9,16 @@ export default function GlobalError({
 }) {
   return (
     <html>
-      <body style={{ margin: 0, fontFamily: 'sans-serif', background: '#FFF8F0', minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+      <body style={{ margin: 0, fontFamily: 'sans-serif', background: '#FAF7F1', minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
         <div style={{ textAlign: 'center', padding: 32, maxWidth: 480 }}>
-          <h2 style={{ color: '#1A3328', fontWeight: 800, marginBottom: 12 }}>Something went wrong</h2>
-          <pre style={{ background: '#fff', border: '1px solid #F5B8B8', borderRadius: 12, padding: 16, fontSize: 13, color: '#8C1F1F', textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginBottom: 20 }}>
+          <h2 style={{ color: '#12271E', fontWeight: 800, marginBottom: 12 }}>Something went wrong</h2>
+          <pre style={{ background: '#fff', border: '1px solid #F0C6C3', borderRadius: 14, padding: 16, fontSize: 13, color: '#7A2323', textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginBottom: 20 }}>
             {error?.message ?? 'Unknown error'}
             {error?.digest ? `\n\nDigest: ${error.digest}` : ''}
           </pre>
           <button
             onClick={reset}
-            style={{ padding: '12px 24px', background: '#4CAF7D', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 15 }}
+            style={{ padding: '12px 26px', background: 'linear-gradient(135deg, #3a9068, #2F7A57)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 15, boxShadow: '0 8px 22px rgba(47,122,87,0.32)' }}
           >
             Try again
           </button>

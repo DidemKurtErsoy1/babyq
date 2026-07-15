@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "BabyQ — Parenting Answers",
   description: "Trusted, instant answers to the questions every parent has.",
   manifest: "/manifest.json",
-  themeColor: "#1B4332",
+  themeColor: "#12271E",
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -60,16 +60,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
 
         {/* ── Footer ── */}
-        <footer style={{
-          textAlign: "center",
-          padding: "32px 24px",
-          fontSize: 13,
-          color: "#6B7280",
-          borderTop: "1px solid #E5E7EB",
-          background: "#fff",
-        }}>
+        <footer className="site-footer">
           © {new Date().getFullYear()}{" "}
-          <strong style={{ color: "#1B4332" }}>BabyQ</strong>
+          <strong>BabyQ</strong>
           {" "}— safe, concise answers for parents.
         </footer>
       </body>

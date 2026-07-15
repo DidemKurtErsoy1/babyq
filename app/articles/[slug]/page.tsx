@@ -8,80 +8,75 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
   if (!a) return notFound();
 
   return (
-    <main style={{ maxWidth: 720, margin: '40px auto', padding: 16 }}>
-      <nav style={{ marginBottom: 12 }}>
-        <Link href="/articles" style={{ textDecoration: 'underline' }}>
-          ← Back to Articles
-        </Link>
-      </nav>
-
-      <header style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span
-            aria-label="category"
+    <main className="page-shell">
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '44px 20px 80px' }}>
+        <nav style={{ marginBottom: 20 }}>
+          <Link
+            href="/articles"
             style={{
-              fontSize: 12,
-              padding: '4px 10px',
-              borderRadius: 999,
-              border: '1px solid #DDD',
-              background: '#FAF7F0'
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 14, fontWeight: 650, color: 'var(--accent-strong)',
             }}
           >
-            🏷️ {a.category}
-          </span>
-          <span style={{ fontSize: 12, opacity: 0.7 }}>
-            Last updated: {new Date(a.updated).toLocaleDateString()}
-          </span>
-          <span style={{ fontSize: 12, opacity: 0.7 }}>• By {a.author}</span>
-        </div>
+            ← Back to Articles
+          </Link>
+        </nav>
 
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>{a.title}</h1>
-        <p style={{ opacity: 0.8, marginTop: 6 }}>{a.excerpt}</p>
-      </header>
+        <header style={{ marginBottom: 26 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+            <span aria-label="category" className="badge badge-accent">🏷️ {a.category}</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-tertiary)' }}>
+              Last updated: {new Date(a.updated).toLocaleDateString()} · By {a.author}
+            </span>
+          </div>
 
-      {/* Sections */}
-      <article style={{ display: 'grid', gap: 16 }}>
-        {a.sections.map((s, idx) => (
-          <section key={idx} style={{ background: '#fff', border: '1px solid #EEE', borderRadius: 12, padding: 14 }}>
-            <h2 style={{ fontSize: 20, margin: '0 0 6px' }}>{s.heading}</h2>
-            {s.paragraphs.map((p, i) => (
-              <p key={i} style={{ marginTop: 8, lineHeight: 1.6 }}>{p}</p>
-            ))}
-          </section>
-        ))}
+          <h1 style={{ fontSize: 34, fontWeight: 800, margin: '0 0 10px', color: 'var(--brand)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+            {a.title}
+          </h1>
+          <p style={{ color: 'var(--ink-secondary)', fontSize: 16.5, lineHeight: 1.6, margin: 0 }}>{a.excerpt}</p>
+        </header>
 
-        {/* Mini FAQ */}
-        {a.faqs?.length ? (
-          <section style={{ background: '#fff', border: '1px solid #EEE', borderRadius: 12, padding: 14 }}>
-            <h2 style={{ fontSize: 20, margin: '0 0 6px' }}>FAQ</h2>
-            <ul style={{ marginTop: 8, display: 'grid', gap: 8 }}>
-              {a.faqs.map((f, i) => (
-                <li key={i}>
-                  <strong>Q:</strong> {f.q}
-                  <br />
-                  <span><strong>A:</strong> {f.a}</span>
-                </li>
+        {/* Sections */}
+        <article style={{ display: 'grid', gap: 16 }}>
+          {a.sections.map((s, idx) => (
+            <section key={idx} className="card" style={{ padding: '22px 24px' }}>
+              <h2 style={{ fontSize: 18.5, fontWeight: 750, margin: '0 0 10px', color: 'var(--ink)' }}>{s.heading}</h2>
+              {s.paragraphs.map((p, i) => (
+                <p key={i} style={{ marginTop: i === 0 ? 0 : 10, lineHeight: 1.7, fontSize: 15, color: 'var(--ink-secondary)' }}>{p}</p>
               ))}
-            </ul>
-          </section>
-        ) : null}
+            </section>
+          ))}
 
-        {/* Resources */}
-        {a.resources?.length ? (
-          <section style={{ background: '#fff', border: '1px solid #EEE', borderRadius: 12, padding: 14 }}>
-            <h2 style={{ fontSize: 20, margin: '0 0 6px' }}>Resources</h2>
-            <ul style={{ marginTop: 8 }}>
-              {a.resources.map((r, i) => (
-                <li key={i}>
-                  <a href={r.url} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
-                    {r.label}
+          {/* Mini FAQ */}
+          {a.faqs?.length ? (
+            <section className="card" style={{ padding: '22px 24px' }}>
+              <h2 style={{ fontSize: 18.5, fontWeight: 750, margin: '0 0 14px', color: 'var(--ink)' }}>FAQ</h2>
+              <div style={{ display: 'grid', gap: 14 }}>
+                {a.faqs.map((f, i) => (
+                  <div key={i} style={{ paddingBottom: i < a.faqs.length - 1 ? 14 : 0, borderBottom: i < a.faqs.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ fontWeight: 650, fontSize: 14.5, color: 'var(--ink)', marginBottom: 4 }}>{f.q}</div>
+                    <div style={{ fontSize: 14.5, color: 'var(--ink-secondary)', lineHeight: 1.6 }}>{f.a}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {/* Resources */}
+          {a.resources?.length ? (
+            <section className="card" style={{ padding: '22px 24px' }}>
+              <h2 style={{ fontSize: 18.5, fontWeight: 750, margin: '0 0 12px', color: 'var(--ink)' }}>Resources</h2>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {a.resources.map((r, i) => (
+                  <a key={i} href={r.url} target="_blank" rel="noreferrer" className="chip" style={{ fontSize: 13.5 }}>
+                    🔗 {r.label}
                   </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-      </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </article>
+      </div>
     </main>
   );
 }

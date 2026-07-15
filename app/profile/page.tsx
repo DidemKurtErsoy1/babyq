@@ -184,51 +184,28 @@ export default function ProfilePage() {
     }
   }
 
-  const fieldBase = {
-    width: '100%',
-    padding: '13px 16px',
-    borderRadius: 14,
-    border: '1.5px solid #C8E2D4',
-    background: '#FAFFF9',
-    color: '#2D3436',
-    outline: 'none',
-    fontSize: 16,
-    fontFamily: 'inherit',
-    transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
-  } as const;
-
   return (
-    <main style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #FFF8F0 0%, #F0FAF4 40%, #FFF8F0 100%)' }}>
+    <main className="page-shell">
       <div
         style={{
           maxWidth: 720,
           margin: '0 auto',
-          padding: '36px 20px 64px',
+          padding: '48px 20px 72px',
           display: 'flex',
           flexDirection: 'column',
           gap: 20,
         }}
       >
-        <section
-          style={{
-            border: '1px solid #C8E2D4',
-            background: '#FFFFFF',
-            borderRadius: 26,
-            padding: '32px 30px',
-            boxShadow: '0 12px 40px rgba(44, 122, 86, 0.09)',
-            display: 'grid',
-            gap: 16,
-          }}
-        >
+        <section className="premium-card" style={{ padding: '34px 32px', display: 'grid', gap: 18 }}>
           <div style={{ display: 'grid', gap: 6 }}>
-            <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: '#1A3328' }}>Baby Profiles</h1>
-            <p style={{ marginTop: 4, fontSize: 16, color: '#4A6B55', lineHeight: 1.6 }}>
+            <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0, color: 'var(--brand)', letterSpacing: '-0.02em' }}>Baby Profiles</h1>
+            <p style={{ marginTop: 4, fontSize: 15.5, color: 'var(--ink-secondary)', lineHeight: 1.6 }}>
               Add each of your children. On the Ask page you can pick who a question is about — age fills in automatically.
             </p>
           </div>
 
           {!loading && babies.length > 0 && (
-            <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'grid', gap: 10 }}>
               {babies.map((b) => (
                 <div
                   key={b.id}
@@ -237,34 +214,26 @@ export default function ProfilePage() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: 12,
-                    border: '1px solid #A8DDB8',
-                    background: '#EDF9F3',
-                    borderRadius: 18,
+                    border: '1px solid var(--accent-border)',
+                    background: 'var(--accent-soft)',
+                    borderRadius: 'var(--radius-md)',
                     padding: '14px 18px',
                   }}
                 >
                   <div style={{ display: 'grid', gap: 2 }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#1A3328' }}>{b.name}</div>
-                    <div style={{ fontSize: 14, color: '#4A6B55' }}>
+                    <div style={{ fontSize: 16.5, fontWeight: 750, color: 'var(--brand)' }}>{b.name}</div>
+                    <div style={{ fontSize: 13.5, color: 'var(--ink-secondary)' }}>
                       {b.birth_date ? ageLabel(monthsBetween(b.birth_date)) : 'No birth date'}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={() => startEdit(b)}
-                      style={{
-                        padding: '8px 14px', borderRadius: 12, border: '1.5px solid #A8DDB8',
-                        background: '#fff', color: '#1E5E3A', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-                      }}
-                    >
+                    <button onClick={() => startEdit(b)} className="btn-ghost" style={{ padding: '7px 14px', fontSize: 13.5 }}>
                       Edit
                     </button>
                     <button
                       onClick={() => onDelete(b.id)}
-                      style={{
-                        padding: '8px 14px', borderRadius: 12, border: '1.5px solid #F3B8B8',
-                        background: '#fff', color: '#B3261E', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-                      }}
+                      className="btn-ghost"
+                      style={{ padding: '7px 14px', fontSize: 13.5, color: '#8C2B2B', borderColor: 'var(--danger-border)' }}
                     >
                       Remove
                     </button>
@@ -275,55 +244,40 @@ export default function ProfilePage() {
           )}
 
           {!showForm && (
-            <button
-              onClick={startAdd}
-              className="save-btn"
-              style={{
-                padding: '15px 22px',
-                background: 'linear-gradient(135deg, #4CAF7D 0%, #3D9A6D 100%)',
-                color: '#ffffff',
-                borderRadius: 16,
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 800,
-                fontSize: 16,
-                fontFamily: 'inherit',
-                boxShadow: '0 10px 28px rgba(76, 175, 125, 0.35)',
-              }}
-            >
+            <button onClick={startAdd} className="btn save-btn" style={{ fontSize: 15.5 }}>
               + Add a baby
             </button>
           )}
 
           {showForm && (
-            <form onSubmit={onSave} style={{ display: 'grid', gap: 20, marginTop: 4 }}>
-              <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436', fontWeight: 600 }}>
-                Baby's name
+            <form onSubmit={onSave} style={{ display: 'grid', gap: 18, marginTop: 4 }}>
+              <label>
+                <span className="field-label">Baby&apos;s name</span>
                 <input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Daisy"
-                  style={fieldBase}
+                  className="input"
                 />
               </label>
 
-              <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436', fontWeight: 600 }}>
-                Date of birth
+              <label>
+                <span className="field-label">Date of birth</span>
                 <input
                   type="date"
                   value={form.birth_date}
                   onChange={(e) => setForm((f) => ({ ...f, birth_date: e.target.value }))}
-                  style={fieldBase}
+                  className="input"
                   required
                 />
               </label>
 
-              <label style={{ display: 'grid', gap: 8, fontSize: 15, color: '#2D3436', fontWeight: 600 }}>
-                Sex (optional)
+              <label>
+                <span className="field-label">Sex (optional)</span>
                 <select
                   value={form.sex}
                   onChange={(e) => setForm((f) => ({ ...f, sex: e.target.value as Baby['sex'] }))}
-                  style={fieldBase}
+                  className="input"
                 >
                   <option value="unknown">Prefer not to say</option>
                   <option value="female">Female</option>
@@ -332,50 +286,31 @@ export default function ProfilePage() {
               </label>
 
               {form.birth_date && (
-                <div
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#1E5E3A',
-                    background: '#EDF9F3', border: '1px solid #A8DDB8', borderRadius: 14,
-                    padding: '11px 14px', fontWeight: 600,
-                  }}
-                >
+                <div className="alert alert-ok">
                   <span style={{ fontSize: 18 }}>🌱</span>
                   <span>Calculated age: <strong>{monthsBetween(form.birth_date)} months</strong></span>
                 </div>
               )}
 
               <div style={{ display: 'flex', gap: 12 }}>
-                <button
-                  type="submit"
-                  className="save-btn"
-                  style={{
-                    padding: '15px 22px',
-                    background: 'linear-gradient(135deg, #4CAF7D 0%, #3D9A6D 100%)',
-                    color: '#ffffff', borderRadius: 16, border: 'none', cursor: 'pointer',
-                    fontWeight: 800, fontSize: 16, fontFamily: 'inherit',
-                    boxShadow: '0 10px 28px rgba(76, 175, 125, 0.35)',
-                  }}
-                >
+                <button type="submit" className="btn" style={{ fontSize: 15.5 }}>
                   {editingId ? 'Save changes' : 'Add baby'}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowForm(false); setEditingId(null); }}
-                  style={{
-                    padding: '15px 22px', background: '#fff', color: '#4A6B55',
-                    borderRadius: 16, border: '1.5px solid #C8E2D4', cursor: 'pointer',
-                    fontWeight: 700, fontSize: 16, fontFamily: 'inherit',
-                  }}
+                  className="btn-ghost"
+                  style={{ fontSize: 15.5, padding: '13px 24px' }}
                 >
                   Cancel
                 </button>
               </div>
 
-              {saved && <div style={{ color: '#27AE60', fontWeight: 700, fontSize: 15 }}>✓ Saved!</div>}
+              {saved && <div style={{ color: 'var(--accent-strong)', fontWeight: 700, fontSize: 14.5 }}>✓ Saved!</div>}
             </form>
           )}
 
-          <p style={{ marginTop: 4, fontSize: 13, color: '#636E72', lineHeight: 1.6 }}>
+          <p style={{ marginTop: 4, fontSize: 13, color: 'var(--ink-tertiary)', lineHeight: 1.6 }}>
             {user
               ? 'Profiles are saved to your account and synced across devices.'
               : 'Profiles are stored locally on this device. Sign in to sync across devices.'}
@@ -395,13 +330,6 @@ export default function ProfilePage() {
           .save-btn {
             width: 100%;
           }
-        }
-        .save-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 14px 32px rgba(76, 175, 125, 0.42) !important;
-        }
-        .save-btn:active {
-          transform: translateY(0);
         }
       `}</style>
     </main>
