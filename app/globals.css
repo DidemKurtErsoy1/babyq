@@ -21,6 +21,14 @@
   --warn-border: #FDE68A;
   --ok: #16A34A;
   --ok-light: #F0FDF4;
+
+  /* Premium depth tokens */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 28px -12px rgba(16, 24, 40, 0.16);
+  --shadow-card-hover: 0 1px 2px rgba(16, 24, 40, 0.05), 0 24px 48px -16px rgba(20, 48, 36, 0.28);
+  --shadow-float: 0 24px 60px -20px rgba(16, 24, 40, 0.35);
+  --radius-lg: 20px;
+  --radius-xl: 24px;
 }
 
 /* ---------- Reset & base typography ---------- */
@@ -225,6 +233,106 @@ a:hover { text-decoration: none }
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
+}
+
+/* ---------- Premium Hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(85% 120% at 10% -10%, #2f7355 0%, transparent 52%),
+    radial-gradient(75% 110% at 105% 115%, #0f2a20 0%, transparent 55%),
+    linear-gradient(155deg, #102a20 0%, #1B4332 52%, #22553c 100%);
+}
+/* faint engineered grid, fading toward the edges */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(120% 90% at 40% 0%, #000 25%, transparent 78%);
+  mask-image: radial-gradient(120% 90% at 40% 0%, #000 25%, transparent 78%);
+  pointer-events: none;
+}
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.55;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* gradient text accent */
+.grad-text {
+  background: linear-gradient(92deg, #a7f3cf 0%, #ffffff 60%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* glass chip on dark backgrounds */
+.glass-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 999px;
+  padding: 8px 15px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+/* floating preview card overlapping the hero photo */
+.hero-float-card {
+  position: absolute;
+  left: -34px;
+  bottom: 34px;
+  width: 244px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-float);
+  animation: floaty 6s ease-in-out infinite;
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+
+/* elevated card with a hairline gradient top accent */
+.premium-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.premium-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: linear-gradient(90deg, #40916C, #74c69d, #40916C);
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-float-card { animation: none; }
 }
 
 /* ---------- Utility ---------- */

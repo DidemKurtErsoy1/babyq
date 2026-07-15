@@ -230,100 +230,120 @@ export default function Home() {
       {/* ═══════════════════════════════════════
           HERO
       ═══════════════════════════════════════ */}
-      <section style={{
-        background: '#1B4332',
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
+      <section className="hero">
+        {/* glow orbs */}
+        <div className="hero-orb" style={{ width: 420, height: 420, top: -120, left: -80, background: 'radial-gradient(circle, #52b788 0%, transparent 70%)' }} />
+        <div className="hero-orb" style={{ width: 360, height: 360, bottom: -140, right: 40, background: 'radial-gradient(circle, #2d6a4f 0%, transparent 70%)' }} />
+
         <div style={{
           maxWidth: 1100,
           margin: '0 auto',
-          padding: '72px 32px 80px',
+          padding: '84px 32px 92px',
           display: 'flex',
           alignItems: 'center',
           gap: 56,
+          position: 'relative',
         }}>
           {/* Left: text */}
           <div style={{ flex: 1, minWidth: 0 }}>
             {/* Pill badge */}
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.18)',
-              borderRadius: 999,
-              padding: '5px 14px',
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.85)',
-              marginBottom: 24,
-            }}>
-              🌿 Trusted pediatric Q&amp;A
+            <div className="glass-chip" style={{ marginBottom: 26 }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: '#74c69d', boxShadow: '0 0 0 3px rgba(116,198,157,0.25)',
+                display: 'inline-block',
+              }} />
+              Trusted pediatric Q&amp;A
             </div>
 
             <h1 style={{
-              fontSize: 'clamp(32px, 5vw, 52px)',
+              fontSize: 'clamp(34px, 5.4vw, 58px)',
               fontWeight: 800,
-              lineHeight: 1.1,
+              lineHeight: 1.08,
               color: '#fff',
-              letterSpacing: '-0.5px',
-              margin: '0 0 20px',
+              letterSpacing: '-1px',
+              margin: '0 0 22px',
             }}>
-              Answers for every<br />parenting question
+              Answers for every<br /><span className="grad-text">parenting question</span>
             </h1>
 
             <p style={{
-              fontSize: 17,
-              color: 'rgba(255,255,255,0.7)',
+              fontSize: 17.5,
+              color: 'rgba(255,255,255,0.72)',
               lineHeight: 1.65,
-              margin: '0 0 36px',
-              maxWidth: 440,
+              margin: '0 0 34px',
+              maxWidth: 460,
             }}>
               Fast, clear answers about your baby's health — backed by trusted
               pediatric guidelines. Always consult your doctor for emergencies.
             </p>
 
-            <button
-              onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '15px 30px',
-                background: '#40916C',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 10,
-                cursor: 'pointer',
-                fontWeight: 700,
-                fontSize: 16,
-                fontFamily: 'inherit',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-                transition: 'background 0.15s ease, transform 0.1s ease',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#2D6A4F'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#40916C'; e.currentTarget.style.transform = 'translateY(0)'; }}
-            >
-              Get instant answers →
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 34 }}>
+              <button
+                onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '16px 32px',
+                  background: 'linear-gradient(135deg, #52b788 0%, #40916C 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 12,
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: 16,
+                  fontFamily: 'inherit',
+                  boxShadow: '0 10px 30px rgba(64,145,108,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
+                  transition: 'transform 0.15s ease, box-shadow 0.2s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(64,145,108,0.55), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(64,145,108,0.45), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
+              >
+                Get instant answers →
+              </button>
+            </div>
+
+            {/* feature chips */}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div className="glass-chip">⚡ Seconds, not searches</div>
+              <div className="glass-chip">🌍 TR &amp; EN</div>
+              <div className="glass-chip">🛟 Safety-first</div>
+            </div>
           </div>
 
-          {/* Right: photo */}
+          {/* Right: photo with glow ring + floating card */}
           <div className="hero-photo">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600"
-              alt="Happy baby"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                borderRadius: 20,
-                boxShadow: '0 32px 72px rgba(0,0,0,0.35)',
-                display: 'block',
-              }}
-            />
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600"
+                alt="Happy baby"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  borderRadius: 24,
+                  boxShadow: '0 40px 80px rgba(0,0,0,0.45)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  display: 'block',
+                }}
+              />
+              {/* floating mini answer card */}
+              <div className="hero-float-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, letterSpacing: 0.3,
+                    color: '#1E5E3A', background: '#E2F5EC',
+                    padding: '3px 8px', borderRadius: 999,
+                  }}>🤖 AI</span>
+                  <span style={{ fontSize: 11.5, color: '#9CA3AF', fontWeight: 600 }}>7 mo · fever</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: '#374151', lineHeight: 1.5 }}>
+                  Keep them lightly dressed, offer fluids often, and watch how they’re acting…
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -372,11 +392,8 @@ export default function Home() {
         <section
           ref={formRef}
           id="ask-form"
+          className="premium-card"
           style={{
-            background: '#fff',
-            borderRadius: 16,
-            border: '1px solid #E5E7EB',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)',
             padding: '40px 36px',
           }}
         >
