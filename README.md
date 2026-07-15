@@ -30,8 +30,9 @@ Parents often turn to search engines at 2 a.m. with vague, anxious questions abo
   2. **FAQ matching** scores a Supabase-backed FAQ table by age range and keyword overlap.
   3. **Gemini fallback chain** (`gemini-flash-lite-latest` → `gemini-flash-latest` → `gemini-pro-latest`, Google's self-updating model aliases) generates a grounded answer using the top FAQ matches as context, with a shorter retry prompt if the first call fails.
 - **Bilingual (TR/EN)** — auto language detection from input text (with `?lang=` override), covering UI copy, prompts, and disclaimers.
-- **Auth & history** — Supabase email/password auth; logged-in users get persisted question history and a baby profile (guests fall back to `localStorage`).
-- **Articles library** — static, editorially-written reference articles (fever, feeding, sleep, respiratory) with sources.
+- **Auth & multi-baby profiles** — Supabase email/password auth; logged-in users can save more than one child, pick who a question is about on the Ask page, and get persisted question history (guests fall back to `localStorage`).
+- **Articles library** — 20 editorially-written reference articles across 7 categories (fever, feeding, sleep, respiratory, newborn care, safety, skin & bathing) with sources.
+- **Product analytics** — PostHog-instrumented activation funnel (`$pageview` → `ask_started` → `answer_received` → `signup_completed`).
 - **PWA** — installable, offline-capable via `manifest.json` + service worker.
 - **Feedback loop** — thumbs up/down on AI answers, stored for future quality review.
 
@@ -66,6 +67,7 @@ Parents often turn to search engines at 2 a.m. with vague, anxious questions abo
 | UI | React 19, TypeScript, Tailwind CSS v4 |
 | Auth & DB | Supabase (Postgres, email/password auth) |
 | AI | Google Gemini (`flash-lite-latest` / `flash-latest` / `pro-latest`) |
+| Analytics | PostHog (activation funnel, autocapture) |
 | Deployment | Vercel |
 | PWA | Web App Manifest + custom service worker |
 
@@ -97,9 +99,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 # AI
 GEMINI_API_KEY=your-gemini-api-key
+
+# Analytics (optional — omit to run without PostHog)
+NEXT_PUBLIC_POSTHOG_KEY=your-posthog-project-key
+NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
 ```
 
-Run the SQL in [`supabase/migrations`](supabase/migrations) (in order) via the Supabase SQL Editor to create the `faqs`, `questions`, `feedback`, and `profiles` tables with Row Level Security policies, plus a small seed set of FAQs.
+Run the SQL in [`supabase/migrations`](supabase/migrations) (in order) via the Supabase SQL Editor to create the `faqs`, `questions`, `feedback`, `profiles`, and `babies` tables with Row Level Security policies, plus a small seed set of FAQs.
 
 ```bash
 npm run dev
