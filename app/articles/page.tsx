@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { articles } from './data';
 
-const categories = ['All', 'Fever', 'Feeding', 'Sleep', 'Respiratory'] as const;
+const categories = ['All', 'Fever', 'Feeding', 'Sleep', 'Respiratory', 'Newborn Care', 'Safety', 'Skin & Bathing'] as const;
 type Cat = (typeof categories)[number];
 
 export default function ArticlesPage() {
