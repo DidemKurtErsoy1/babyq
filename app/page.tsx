@@ -151,10 +151,15 @@ export default function Home() {
     setCopied(false);
     setFeedback(null);
 
+    // Personalize the answer with the picked baby's name (works for guests too,
+    // since it's sent in the request rather than looked up from babyId).
+    const selectedBaby = babies.find((b) => b.id === selectedBabyId);
+
     const payload = {
       ageMonths: Number(age || 0),
       question:  q,
       sex,
+      babyName:  selectedBaby?.name ?? null,
       userId:    user?.id ?? null,
       // Guest-saved babies only exist in localStorage, not in the babies
       // table, so their id would violate questions.baby_id's foreign key.

@@ -190,14 +190,36 @@ async function geminiGenerate(prompt: string) {
   throw new Error(lastError || 'no_model_available_or_empty');
 }
 
+function babyProfileLine(
+  lang: 'TR' | 'EN',
+  ageMonths: number,
+  sex: string | null,
+  babyName: string | null
+) {
+  const name = (babyName || '').trim().slice(0, 40);
+  if (lang === 'TR') {
+    const sexTr = sex === 'female' ? ', kız' : sex === 'male' ? ', erkek' : '';
+    return `Bebek: ${name ? name + ', ' : ''}${ageMonths} aylık${sexTr}`;
+  }
+  const sexEn = sex === 'female' ? ', girl' : sex === 'male' ? ', boy' : '';
+  return `Baby: ${name ? name + ', ' : ''}${ageMonths} months old${sexEn}`;
+}
+
 async function askGeminiSmart(
   ageMonths: number,
   question: string,
   faqs: Faq[],
   urgent: boolean,
-  lang: 'TR' | 'EN'
+  lang: 'TR' | 'EN',
+  sex: string | null,
+  babyName: string | null
 ) {
   const system = UI[lang].sys;
+  const name = (babyName || '').trim().slice(0, 40);
+  const profile = babyProfileLine(lang, ageMonths, sex, babyName);
+  const personalTouch = name
+    ? (lang === 'TR' ? `\nYanıtı ${name} için sıcak ve kişisel bir dille yaz.` : `\nWrite the answer warmly and personally for ${name}.`)
+    : '';
 
   const ctx =
     faqs.length
@@ -213,9 +235,10 @@ async function askGeminiSmart(
 
   const user =
     (lang === 'TR'
-      ? `Bebek yaşı: ${ageMonths} ay\nSoru: ${cut(question, 140)}`
-      : `Baby age (months): ${ageMonths}\nQuestion: ${cut(question, 140)}`
+      ? `${profile}\nSoru: ${cut(question, 140)}`
+      : `${profile}\nQuestion: ${cut(question, 140)}`
     ) +
+    personalTouch +
     `\n\n${ctx}` +
     (urgent
       ? (lang === 'TR'
@@ -229,8 +252,8 @@ async function askGeminiSmart(
   } catch {
     const user2 =
       lang === 'TR'
-        ? `Yaş: ${ageMonths} ay. Soru: ${cut(question, 140)}. ${urgent ? 'Acil olabilir; ACİL uyarı ile başla. ' : ''}En fazla 5 kısa satır.`
-        : `Baby age: ${ageMonths} months. Question: ${cut(question, 140)}. ${urgent ? 'Urgent possible; start with URGENT. ' : ''}Max 5 short lines.`;
+        ? `${profile}. Soru: ${cut(question, 140)}.${personalTouch} ${urgent ? 'Acil olabilir; ACİL uyarı ile başla. ' : ''}En fazla 5 kısa satır.`
+        : `${profile}. Question: ${cut(question, 140)}.${personalTouch} ${urgent ? 'Urgent possible; start with URGENT. ' : ''}Max 5 short lines.`;
     try {
       const r2 = await geminiGenerate(cut(`System:\n${system}\n\nUser:\n${user2}`, 800));
       return { text: r2.text, llmUsed: true, llmError: null, provider: 'gemini' as const };
@@ -256,6 +279,7 @@ export async function POST(req: Request) {
     const userId: string | null = body?.userId ?? null;
     const sex: string | null = body?.sex ?? null;
     const babyId: string | null = body?.babyId ?? null;
+    const babyName: string | null = body?.babyName ?? null;
     if ((!ageMonths || !question) && body?.data?.fields?.length) {
       const fields: any[] = body.data.fields;
       const ageField = fields.find(f => /age|yaş|yas/i.test(f?.key || f?.label));
@@ -362,7 +386,7 @@ export async function POST(req: Request) {
 
     // LLM çağrısı
     const { text: aiText, llmUsed, llmError, provider } =
-      await askGeminiSmart(ageMonths, question, faqs, urgent, lang);
+      await askGeminiSmart(ageMonths, question, faqs, urgent, lang, sex, babyName);
 
     let source: 'AI' | 'FAQ' | 'FALLBACK';
     let answer: string;
