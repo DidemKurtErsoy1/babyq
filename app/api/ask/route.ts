@@ -29,10 +29,10 @@ const UI = {
     tooShort:
       'Ön değerlendirme: Soru çok kısa. Lütfen şunları ekleyin:\n• Bebeğin yaşı (ay)\n• En yüksek ateş ve nasıl ölçtünüz\n• Eşlik eden belirtiler (nefes darlığı, kusma vb.)',
     urgentTitle: '🔺 ACİL UYARI',
-    urgentBody: (t?: number | null) =>
+    urgentBody: (t: number | null | undefined, emrg: string) =>
       `${t ? `• Bildirilen ateş: yaklaşık ${t}°C.\n` : ''}` +
       '• 40°C ve üzeri ateş veya 3 aydan küçük bebekte ≥38°C acil değerlendirme gerektirebilir.\n' +
-      '• Hemen sağlık kuruluşuna başvurun veya 112’yi arayın.\n' +
+      `• Hemen sağlık kuruluşuna başvurun veya ${emrg}'yi arayın.\n` +
       '• İnce giydirin, serin ortam sağlayın; sık sık sıvı teklif edin.\n' +
       '• Soğuk duş/alkollü ovma uygulamayın; ilaç dozu bilgisi veremem.',
     fallback:
@@ -45,10 +45,10 @@ const UI = {
     tooShort:
       'Pre-check: Your question seems too short. Please add:\n• Baby age (months)\n• Highest measured temperature and how you measured\n• Any accompanying symptoms (breathing difficulty, vomiting, etc.)',
     urgentTitle: '🔺 URGENT WARNING',
-    urgentBody: (t?: number | null) =>
+    urgentBody: (t: number | null | undefined, emrg: string) =>
       `${t ? `• Reported temperature: ~${t}°C.\n` : ''}` +
       '• ≥40°C fever or infants <3 months with ≥38°C may require immediate evaluation.\n' +
-      '• Seek medical care now or call your local emergency number.\n' +
+      `• Seek medical care now or call ${emrg}.\n` +
       '• Dress lightly, keep a cool/ventilated room; offer fluids frequently.\n' +
       '• Do NOT use cold baths or alcohol rubs; no dosing instructions provided.',
     fallback:
@@ -58,6 +58,23 @@ const UI = {
       'You are a pediatric assistant; do NOT diagnose or prescribe. English only. Output format: one short summary sentence; three actionable bullet tips; one bullet “When to see a doctor?”. If urgent red flags exist, start with an URGENT warning. Keep total ≤90 words.'
   }
 } as const;
+
+/** Resolve the local emergency number from a country code (Vercel geo header). */
+function emergencyNumber(country?: string | null): string {
+  const map: Record<string, string> = {
+    US: '911', CA: '911', MX: '911',
+    AU: '000', NZ: '111', GB: '999',
+  };
+  // 112 is the valid emergency number across the EU, Turkey, India and much
+  // of the world, so it's the safe default when we can't map the country.
+  return map[(country || '').toUpperCase()] || '112';
+}
+
+function localizedDisclaimer(lang: 'TR' | 'EN', emrg: string): string {
+  return lang === 'TR'
+    ? `Bu içerik tıbbi tavsiye değildir. Acil durumda ${emrg}'yi arayın veya en yakın sağlık kuruluşuna başvurun.`
+    : `This content is not medical advice. In an emergency, call ${emrg} or visit the nearest healthcare facility.`;
+}
 
 /** ------------ Helpers ------------ */
 function cut(s: string, max = 400) {
@@ -293,6 +310,10 @@ export async function POST(req: Request) {
     const lang: 'TR' | 'EN' = detectLang(question, req);
     const L = UI[lang];
 
+    // Local emergency number from Vercel's geo header (falls back to 112).
+    const emrg = emergencyNumber(req.headers.get('x-vercel-ip-country'));
+    const disclaimer = localizedDisclaimer(lang, emrg);
+
     // Rate limiting — protects against abuse / Gemini bill-shock.
     // Real parents never approach these; a scripted flood trips instantly.
     const ip = clientIp(req);
@@ -308,7 +329,7 @@ export async function POST(req: Request) {
         {
           answer: msg,
           candidates: [],
-          disclaimer: L.disclaimer,
+          disclaimer,
           meta: { source: 'FALLBACK', llmUsed: false, llmError: null, provider: 'rate-limit', matchedFaqs: 0, urgent: false },
         },
         { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
@@ -327,7 +348,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         answer: L.tooShort,
         candidates: [],
-        disclaimer: L.disclaimer,
+        disclaimer,
         meta: { source: 'FALLBACK', llmUsed: false, llmError: null, provider: 'rules', matchedFaqs: 0, urgent: false }
       }, { status: 400 });
     }
@@ -335,7 +356,7 @@ export async function POST(req: Request) {
     // Acil kuralı
     const risk = evaluateRisk(ageMonths, question);
     if (risk.emergency) {
-      const urgentAnswer = `${L.urgentTitle}\n${L.urgentBody(risk.temp)}`;
+      const urgentAnswer = `${L.urgentTitle}\n${L.urgentBody(risk.temp, emrg)}`;
       if (userId) {
         try {
           const supa = supabaseServer();
@@ -354,7 +375,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         answer: urgentAnswer,
         candidates: [],
-        disclaimer: L.disclaimer,
+        disclaimer,
         meta: { source: 'FALLBACK', llmUsed: false, llmError: null, provider: 'rules', matchedFaqs: 0, urgent: true }
       });
     }
@@ -420,7 +441,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       answer,
       candidates: faqs,
-      disclaimer: L.disclaimer,
+      disclaimer,
       meta: { source, llmUsed, llmError, provider, matchedFaqs: faqs.length, urgent }
     });
   } catch (e: any) {
