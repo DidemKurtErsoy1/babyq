@@ -49,12 +49,15 @@ function monthsBetween(birthISO: string) {
   return Math.max(0, m);
 }
 
+// One-tap example prompts: clicking a chip fills a full, realistic question
+// and submits it immediately, so a first-time visitor sees a real answer
+// without typing anything.
 const CHIPS = [
-  { label: 'Fever',   emoji: '🌡️' },
-  { label: 'Sleep',   emoji: '😴' },
-  { label: 'Feeding', emoji: '🍼' },
-  { label: 'Crying',  emoji: '😢' },
-  { label: 'Rash',    emoji: '🔴' },
+  { label: 'Fever',   emoji: '🌡️', example: 'My baby has a fever today, what should I do?' },
+  { label: 'Sleep',   emoji: '😴', example: "My baby won't sleep through the night, any tips?" },
+  { label: 'Feeding', emoji: '🍼', example: 'My baby is eating very little today, should I worry?' },
+  { label: 'Crying',  emoji: '😢', example: "My baby keeps crying and I can't soothe them, what can I try?" },
+  { label: 'Rash',    emoji: '🔴', example: 'My baby has a red rash on their cheeks, what should I do?' },
 ];
 
 /* ── Component ── */
@@ -136,9 +139,12 @@ export default function Home() {
     return sp.has('debug') || sp.has('sources');
   }, []);
 
-  /* Submit */
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  /* Core ask — takes the question text explicitly so callers (form submit,
+     one-tap example chips) don't race React state updates. */
+  async function runAsk(questionText: string) {
+    const q = questionText.trim();
+    if (!q) return;
+
     setLoading(true);
     setError(null);
     setResp(null);
@@ -147,7 +153,7 @@ export default function Home() {
 
     const payload = {
       ageMonths: Number(age || 0),
-      question:  question.trim(),
+      question:  q,
       sex,
       userId:    user?.id ?? null,
       // Guest-saved babies only exist in localStorage, not in the babies
@@ -184,6 +190,21 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    runAsk(question);
+  }
+
+  /* One-tap example: fill the field, mark ask_started, and answer immediately */
+  function askExample(text: string) {
+    setQuestion(text);
+    if (!askStartedRef.current) {
+      askStartedRef.current = true;
+      getPostHog()?.capture('ask_started', { via: 'example_chip' });
+    }
+    runAsk(text);
   }
 
   /* Feedback */
@@ -495,22 +516,27 @@ export default function Home() {
                 required
               />
 
-              {/* Quick chips */}
+              {/* One-tap examples — instant answer, no typing needed */}
               {showChips && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                  {CHIPS.map((c) => (
-                    <button
-                      type="button"
-                      key={c.label}
-                      onClick={() =>
-                        setQuestion((q) => q.trim() ? `${q.trimEnd()} ${c.label}` : c.label)
-                      }
-                      className="chip"
-                      style={{ fontSize: 13, padding: '6px 14px' }}
-                    >
-                      {c.emoji} {c.label}
-                    </button>
-                  ))}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--ink-tertiary)', marginBottom: 9, letterSpacing: 0.2 }}>
+                    ✨ Try an example — one tap for an instant answer
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {CHIPS.map((c) => (
+                      <button
+                        type="button"
+                        key={c.label}
+                        onClick={() => askExample(c.example)}
+                        disabled={loading}
+                        title={c.example}
+                        className="chip"
+                        style={{ fontSize: 13, padding: '6px 14px' }}
+                      >
+                        {c.emoji} {c.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
