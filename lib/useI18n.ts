@@ -2,7 +2,26 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-type Lang = 'en' | 'tr';
+export type Lang = 'en' | 'tr';
+
+export type ExampleChip = { label: string; emoji: string; example: string };
+
+const EXAMPLE_CHIPS: Record<Lang, ExampleChip[]> = {
+  en: [
+    { label: 'Fever', emoji: '🌡️', example: 'My baby has a fever today, what should I do?' },
+    { label: 'Sleep', emoji: '😴', example: "My baby won't sleep through the night, any tips?" },
+    { label: 'Feeding', emoji: '🍼', example: 'My baby is eating very little today, should I worry?' },
+    { label: 'Crying', emoji: '😢', example: "My baby keeps crying and I can't soothe them, what can I try?" },
+    { label: 'Rash', emoji: '🔴', example: 'My baby has a red rash on their cheeks, what should I do?' },
+  ],
+  tr: [
+    { label: 'Ateş', emoji: '🌡️', example: 'Bebeğim bugün ateşlendi, ne yapmalıyım?' },
+    { label: 'Uyku', emoji: '😴', example: 'Bebeğim gece boyunca uyumuyor, ne önerirsiniz?' },
+    { label: 'Beslenme', emoji: '🍼', example: 'Bebeğim bugün çok az yedi, endişelenmeli miyim?' },
+    { label: 'Ağlama', emoji: '😢', example: 'Bebeğim sürekli ağlıyor, sakinleştiremiyorum, ne yapabilirim?' },
+    { label: 'Döküntü', emoji: '🔴', example: 'Bebeğimin yanaklarında kırmızı döküntü var, ne yapmalıyım?' },
+  ],
+};
 
 const messages = {
   en: {
@@ -26,6 +45,8 @@ const messages = {
     ageMonthsLabel: 'Age (months)',
     genderLabel: 'Gender',
     sourceLabel: 'Source',
+    sourceGeneral: 'General',
+    sourcesHint: 'Curated pediatric references used to inform this answer.',
     questionPreview: 'Question',
     copied: '✅ Copied',
     copyAnswer: 'Copy answer',
@@ -38,6 +59,43 @@ const messages = {
     passwordLabel: 'Password',
     authError: 'Authentication error',
     profileSaved: 'Profile saved to your account ✓',
+    heroBadge: 'Trusted pediatric Q&A',
+    heroTitleLine1: 'Answers for every',
+    heroTitleLine2: 'parenting question',
+    heroSubtitle:
+      "Fast, clear answers about your baby's health — backed by trusted pediatric guidelines. Always consult your doctor for emergencies.",
+    heroCta: 'Get instant answers →',
+    heroTryLabel: 'Or try instantly:',
+    heroChipSeconds: '⚡ Seconds, not searches',
+    heroChipBilingual: '🌍 TR & EN',
+    heroChipSafety: '🛟 Safety-first',
+    trustNotMedical: '🔒 Not medical advice',
+    trustPediatric: '✓ Pediatric-backed',
+    trustBilingual: '🌍 TR/EN bilingual',
+    formDisclaimer:
+      'Not a substitute for professional medical advice. In emergencies call your local emergency number.',
+    errorPrefix: 'Error:',
+    whoAbout: "Who's this about?",
+    someoneElse: 'Someone else',
+    babyAge: "Baby's age",
+    newborn: 'Newborn',
+    month: 'month',
+    months: 'months',
+    ageRangeMax: '5 years (60 mo)',
+    sexPreferNot: 'Prefer not to say',
+    sexFemale: 'Female',
+    sexMale: 'Male',
+    concernPlaceholder: "Describe what you're noticing…",
+    tryExample: '✨ Try an example — one tap for an instant answer',
+    genericError: 'Something went wrong.',
+    urgentTitle: 'This looks urgent — call emergency services',
+    urgentBody:
+      'Please contact your local emergency number or visit the nearest healthcare facility immediately.',
+    feedbackQuestion: 'Was this answer helpful?',
+    feedbackThanks: 'Thank you! 🙏',
+    shareWhatsApp: 'Share on WhatsApp',
+    sharePrefix: 'BabyQ answer:',
+    sourcesCount: 'Sources',
   },
   tr: {
     askTitle: "BabyQ'ya Sor",
@@ -60,6 +118,8 @@ const messages = {
     ageMonthsLabel: 'Yaş (ay)',
     genderLabel: 'Cinsiyet',
     sourceLabel: 'Kaynak',
+    sourceGeneral: 'Genel',
+    sourcesHint: 'Bu yanıtı oluştururken kullanılan güvenilir pediatrik referanslar.',
     questionPreview: 'Soru',
     copied: '✅ Kopyalandı',
     copyAnswer: 'Yanıtı kopyala',
@@ -72,10 +132,51 @@ const messages = {
     passwordLabel: 'Şifre',
     authError: 'Kimlik doğrulama hatası',
     profileSaved: 'Profil hesabına kaydedildi ✓',
+    heroBadge: 'Güvenilir pediatrik Q&A',
+    heroTitleLine1: 'Her ebeveyn sorusuna',
+    heroTitleLine2: 'anında yanıt',
+    heroSubtitle:
+      'Bebeğinizin sağlığı hakkında hızlı, net yanıtlar — güvenilir pediatrik rehberlere dayanır. Acil durumlarda mutlaka doktorunuza danışın.',
+    heroCta: 'Hemen yanıt al →',
+    heroTryLabel: 'Ya da tek tıkla dene:',
+    heroChipSeconds: '⚡ Arama değil, saniyeler',
+    heroChipBilingual: '🌍 TR & EN',
+    heroChipSafety: '🛟 Güvenlik öncelikli',
+    trustNotMedical: '🔒 Tıbbi tavsiye değildir',
+    trustPediatric: '✓ Pediatrik kaynaklı',
+    trustBilingual: '🌍 TR/EN iki dilli',
+    formDisclaimer:
+      'Profesyonel tıbbi tavsiyenin yerini tutmaz. Acil durumda yerel acil numaranızı arayın.',
+    errorPrefix: 'Hata:',
+    whoAbout: 'Bu soru kimin hakkında?',
+    someoneElse: 'Başka biri',
+    babyAge: 'Bebeğin yaşı',
+    newborn: 'Yenidoğan',
+    month: 'ay',
+    months: 'ay',
+    ageRangeMax: '5 yaş (60 ay)',
+    sexPreferNot: 'Belirtmek istemiyorum',
+    sexFemale: 'Kız',
+    sexMale: 'Erkek',
+    concernPlaceholder: 'Gözlemlediğiniz durumu anlatın…',
+    tryExample: '✨ Örnek deneyin — tek tıkla anında yanıt',
+    genericError: 'Bir şeyler ters gitti.',
+    urgentTitle: 'Acil görünüyor — acil servisi arayın',
+    urgentBody:
+      'Lütfen hemen yerel acil numaranızı arayın veya en yakın sağlık kuruluşuna başvurun.',
+    feedbackQuestion: 'Bu yanıt faydalı oldu mu?',
+    feedbackThanks: 'Teşekkürler! 🙏',
+    shareWhatsApp: "WhatsApp'ta paylaş",
+    sharePrefix: 'BabyQ yanıtı:',
+    sourcesCount: 'Kaynaklar',
   },
 };
 
 type MessageKey = keyof typeof messages.en;
+
+export function getExampleChips(lang: Lang): ExampleChip[] {
+  return EXAMPLE_CHIPS[lang];
+}
 
 export function useI18n() {
   const [lang, setLang] = useState<Lang>('en');
@@ -94,5 +195,7 @@ export function useI18n() {
     [lang]
   );
 
-  return { lang, t };
+  const chips = useMemo(() => getExampleChips(lang), [lang]);
+
+  return { lang, t, chips };
 }

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../lib/useAuth';
 import { getSupabaseBrowser } from '../lib/supabaseBrowser';
 import { getPostHog } from '../lib/posthog';
+import { useI18n } from '../lib/useI18n';
 
 /* ── Types ── */
 type ApiResp = {
@@ -49,20 +50,10 @@ function monthsBetween(birthISO: string) {
   return Math.max(0, m);
 }
 
-// One-tap example prompts: clicking a chip fills a full, realistic question
-// and submits it immediately, so a first-time visitor sees a real answer
-// without typing anything.
-const CHIPS = [
-  { label: 'Fever',   emoji: '🌡️', example: 'My baby has a fever today, what should I do?' },
-  { label: 'Sleep',   emoji: '😴', example: "My baby won't sleep through the night, any tips?" },
-  { label: 'Feeding', emoji: '🍼', example: 'My baby is eating very little today, should I worry?' },
-  { label: 'Crying',  emoji: '😢', example: "My baby keeps crying and I can't soothe them, what can I try?" },
-  { label: 'Rash',    emoji: '🔴', example: 'My baby has a red rash on their cheeks, what should I do?' },
-];
-
 /* ── Component ── */
 export default function Home() {
   const { user } = useAuth();
+  const { t, chips } = useI18n();
 
   const [age,       setAge]       = useState<string>('7');
   const [sex,       setSex]       = useState<'female' | 'male' | 'unknown'>('unknown');
@@ -133,11 +124,6 @@ export default function Home() {
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('v') || '';
   }, []);
-  const showSources = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    const sp = new URLSearchParams(window.location.search);
-    return sp.has('debug') || sp.has('sources');
-  }, []);
 
   /* Core ask — takes the question text explicitly so callers (form submit,
      one-tap example chips) don't race React state updates. */
@@ -191,7 +177,7 @@ export default function Home() {
       }
       setTimeout(() => answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.');
+      setError(err?.message || t('genericError'));
       getPostHog()?.capture('client_error', { source: 'ask_flow', message: String(err?.message || err).slice(0, 300) });
     } finally {
       setLoading(false);
@@ -229,7 +215,12 @@ export default function Home() {
   const srcBadge  = badgeFor(resp?.meta?.source as any, resp?.meta?.provider);
   const isUrgent  = !!resp?.meta?.urgent;
   const sliderPct = `${Math.round((Math.max(0, Math.min(60, Number(age))) / 60) * 100)}%`;
-  const ageLabel  = age === '0' ? 'Newborn' : `${age} ${age === '1' ? 'month' : 'months'}`;
+  const ageLabel  = age === '0' ? t('newborn') : `${age} ${t(age === '1' ? 'month' : 'months')}`;
+
+  function shareWhatsApp() {
+    const text = `${t('sharePrefix')}\n\n${cleanAnswer(resp?.answer || '')}\n\nhttps://babyq.app`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  }
 
   return (
     <main className="page-shell">
@@ -260,7 +251,7 @@ export default function Home() {
                 background: '#F3D99B', boxShadow: '0 0 0 3px rgba(243,217,155,0.25)',
                 display: 'inline-block',
               }} />
-              Trusted pediatric Q&amp;A
+              {t('heroBadge')}
             </div>
 
             <h1 style={{
@@ -271,7 +262,7 @@ export default function Home() {
               letterSpacing: '-1px',
               margin: '0 0 22px',
             }}>
-              Answers for every<br /><span className="grad-text">parenting question</span>
+              {t('heroTitleLine1')}<br /><span className="grad-text">{t('heroTitleLine2')}</span>
             </h1>
 
             <p style={{
@@ -281,11 +272,10 @@ export default function Home() {
               margin: '0 0 34px',
               maxWidth: 460,
             }}>
-              Fast, clear answers about your baby's health — backed by trusted
-              pediatric guidelines. Always consult your doctor for emergencies.
+              {t('heroSubtitle')}
             </p>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 34 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
               <button
                 onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                 style={{
@@ -307,15 +297,37 @@ export default function Home() {
                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(47,122,87,0.55), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(47,122,87,0.45), inset 0 1px 0 rgba(255,255,255,0.25)'; }}
               >
-                Get instant answers →
+                {t('heroCta')}
               </button>
+            </div>
+
+            {/* One-tap demo — answer without scrolling to the form */}
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 10, fontWeight: 600 }}>
+                {t('heroTryLabel')}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {chips.slice(0, 3).map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => askExample(c.example)}
+                    disabled={loading}
+                    title={c.example}
+                    className="glass-chip"
+                    style={{ cursor: loading ? 'wait' : 'pointer', border: 'none', fontFamily: 'inherit' }}
+                  >
+                    {c.emoji} {c.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* feature chips */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <div className="glass-chip">⚡ Seconds, not searches</div>
-              <div className="glass-chip">🌍 TR &amp; EN</div>
-              <div className="glass-chip">🛟 Safety-first</div>
+              <div className="glass-chip">{t('heroChipSeconds')}</div>
+              <div className="glass-chip">{t('heroChipBilingual')}</div>
+              <div className="glass-chip">{t('heroChipSafety')}</div>
             </div>
           </div>
 
@@ -371,11 +383,11 @@ export default function Home() {
           fontWeight: 500,
           color: 'var(--ink-secondary)',
         }}>
-          <span>🔒 Not medical advice</span>
+          <span>{t('trustNotMedical')}</span>
           <span style={{ color: 'var(--border-strong)', userSelect: 'none' }}>•</span>
-          <span>✓ Pediatric-backed</span>
+          <span>{t('trustPediatric')}</span>
           <span style={{ color: 'var(--border-strong)', userSelect: 'none' }}>•</span>
-          <span>🌍 TR/EN bilingual</span>
+          <span>{t('trustBilingual')}</span>
         </div>
       </div>
 
@@ -402,23 +414,23 @@ export default function Home() {
         >
           <div style={{ marginBottom: 28 }}>
             <h2 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 6px', color: 'var(--ink)' }}>
-              Ask BabyQ
+              {t('askTitle')}
             </h2>
             <p style={{ fontSize: 15, color: 'var(--ink-secondary)', margin: 0, lineHeight: 1.5 }}>
-              Short, parent-friendly answers. Not medical advice.
+              {t('subtitle')}
             </p>
           </div>
 
           {/* Disclaimer banner */}
           <div className="alert alert-warn" style={{ marginBottom: 28 }}>
             <span style={{ fontSize: 15 }}>⚠️</span>
-            <span>Not a substitute for professional medical advice. In emergencies call your local emergency number.</span>
+            <span>{t('formDisclaimer')}</span>
           </div>
 
           {/* Error */}
           {error && (
             <div role="alert" className="alert alert-danger" style={{ marginBottom: 24 }}>
-              <strong>Error:</strong>&nbsp;{error}
+              <strong>{t('errorPrefix')}</strong>&nbsp;{error}
             </div>
           )}
 
@@ -427,7 +439,7 @@ export default function Home() {
             {/* ── Baby quick-select ── */}
             {babies.length > 0 && (
               <div>
-                <label className="field-label">Who&apos;s this about?</label>
+                <label className="field-label">{t('whoAbout')}</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {babies.map((b) => (
                     <button
@@ -444,7 +456,7 @@ export default function Home() {
                     onClick={() => setSelectedBabyId(null)}
                     className={`chip ${selectedBabyId === null ? 'chip-active' : ''}`}
                   >
-                    Someone else
+                    {t('someoneElse')}
                   </button>
                 </div>
               </div>
@@ -453,7 +465,7 @@ export default function Home() {
             {/* ── Age slider ── */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <label className="field-label" style={{ marginBottom: 0 }}>Baby&apos;s age</label>
+                <label className="field-label" style={{ marginBottom: 0 }}>{t('babyAge')}</label>
                 <span className="badge badge-accent">{ageLabel}</span>
               </div>
               <input
@@ -474,14 +486,14 @@ export default function Home() {
                 color: 'var(--ink-tertiary)',
                 marginTop: 6,
               }}>
-                <span>Newborn</span>
-                <span>5 years (60 mo)</span>
+                <span>{t('newborn')}</span>
+                <span>{t('ageRangeMax')}</span>
               </div>
             </div>
 
             {/* ── Sex ── */}
             <div>
-              <label htmlFor="sex" className="field-label">Baby&apos;s sex</label>
+              <label htmlFor="sex" className="field-label">{t('sexLabel')}</label>
               <select
                 id="sex"
                 value={sex}
@@ -496,15 +508,15 @@ export default function Home() {
                   cursor: 'pointer',
                 }}
               >
-                <option value="unknown">Prefer not to say</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
+                <option value="unknown">{t('sexPreferNot')}</option>
+                <option value="female">{t('sexFemale')}</option>
+                <option value="male">{t('sexMale')}</option>
               </select>
             </div>
 
             {/* ── Question ── */}
             <div>
-              <label htmlFor="q" className="field-label">What&apos;s your concern?</label>
+              <label htmlFor="q" className="field-label">{t('concernLabel')}</label>
               <textarea
                 id="q"
                 value={question}
@@ -517,7 +529,7 @@ export default function Home() {
                   }
                 }}
                 rows={5}
-                placeholder="Describe what you're noticing…"
+                placeholder={t('concernPlaceholder')}
                 className="textarea"
                 required
               />
@@ -526,10 +538,10 @@ export default function Home() {
               {showChips && (
                 <div style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--ink-tertiary)', marginBottom: 9, letterSpacing: 0.2 }}>
-                    ✨ Try an example — one tap for an instant answer
+                    {t('tryExample')}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {CHIPS.map((c) => (
+                    {chips.map((c) => (
                       <button
                         type="button"
                         key={c.label}
@@ -554,7 +566,7 @@ export default function Home() {
               className="btn submit-btn"
               style={{ fontSize: 16, padding: '15px 30px' }}
             >
-              {loading ? 'Preparing…' : '✨ Get answer'}
+              {loading ? t('preparingAnswer') : `✨ ${t('getAnswer')}`}
             </button>
           </form>
         </section>
@@ -584,7 +596,7 @@ export default function Home() {
               ))}
             </div>
             <p style={{ fontSize: 14, color: 'var(--ink-secondary)', margin: 0, fontWeight: 500 }}>
-              Preparing your answer…
+              {t('preparingAnswer')}
             </p>
           </div>
         )}
@@ -611,10 +623,10 @@ export default function Home() {
                 <span style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>⚠️</span>
                 <div>
                   <strong style={{ color: '#7A2323', fontSize: 15, display: 'block', marginBottom: 3 }}>
-                    This looks urgent — call emergency services
+                    {t('urgentTitle')}
                   </strong>
                   <span style={{ fontSize: 13, lineHeight: 1.5 }}>
-                    Please contact your local emergency number or visit the nearest healthcare facility immediately.
+                    {t('urgentBody')}
                   </span>
                 </div>
               </div>
@@ -637,13 +649,13 @@ export default function Home() {
                 className="btn-ghost"
                 style={{ marginLeft: 'auto', padding: '6px 16px', fontSize: 13 }}
               >
-                {copied ? '✅ Copied' : 'Copy answer'}
+                {copied ? t('copied') : t('copyAnswer')}
               </button>
             </div>
 
             {/* Answer heading + body */}
             <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px', color: 'var(--ink)' }}>
-              Answer
+              {t('answerTitle')}
             </h3>
             <div style={{
               whiteSpace: 'pre-wrap',
@@ -673,15 +685,16 @@ export default function Home() {
               display: 'flex',
               alignItems: 'center',
               gap: 10,
+              flexWrap: 'wrap',
             }}>
               {feedback === 'sent' ? (
                 <span style={{ fontSize: 14, color: 'var(--accent-strong)', fontWeight: 600 }}>
-                  Thank you! 🙏
+                  {t('feedbackThanks')}
                 </span>
               ) : (
                 <>
                   <span style={{ fontSize: 13, color: 'var(--ink-secondary)', fontWeight: 500 }}>
-                    Was this answer helpful?
+                    {t('feedbackQuestion')}
                   </span>
                   <button
                     onClick={() => sendFeedback(true)}
@@ -697,21 +710,37 @@ export default function Home() {
                   >👎</button>
                 </>
               )}
+              <button
+                type="button"
+                onClick={shareWhatsApp}
+                className="chip"
+                style={{ marginLeft: feedback === 'sent' ? 0 : 'auto', padding: '5px 14px', fontSize: 13, fontWeight: 600 }}
+              >
+                💬 {t('shareWhatsApp')}
+              </button>
             </div>
 
-            {/* Sources */}
-            {showSources && resp.candidates?.length ? (
-              <details style={{ marginTop: 20 }}>
+            {/* Sources — always visible when FAQ context was used */}
+            {resp.candidates?.length ? (
+              <details style={{ marginTop: 20 }} open={resp.meta?.source === 'FAQ'}>
                 <summary style={{ fontWeight: 600, color: 'var(--ink-secondary)', cursor: 'pointer', fontSize: 14 }}>
-                  Sources ({resp.candidates.length})
+                  📚 {t('sourcesCount')} ({resp.candidates.length})
                 </summary>
-                <ul style={{ marginTop: 10, paddingLeft: 18, display: 'grid', gap: 8 }}>
+                <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--ink-tertiary)', lineHeight: 1.5 }}>
+                  {t('sourcesHint')}
+                </p>
+                <ul style={{ marginTop: 12, paddingLeft: 18, display: 'grid', gap: 10 }}>
                   {resp.candidates.map((c: any, i: number) => (
                     <li key={c.id || i}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>
-                        {c.category || 'General'} · {c.age_min}–{c.age_max} months
+                        {c.category || t('sourceGeneral')} · {c.age_min}–{c.age_max} {t('months')}
                       </div>
-                      <div style={{ opacity: 0.7, fontSize: 13 }}>{c.question}</div>
+                      <div style={{ opacity: 0.75, fontSize: 13, marginTop: 2 }}>{c.question}</div>
+                      {c.source ? (
+                        <div style={{ fontSize: 12, color: 'var(--ink-tertiary)', marginTop: 4 }}>
+                          {t('sourceLabel')}: {c.source}
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
