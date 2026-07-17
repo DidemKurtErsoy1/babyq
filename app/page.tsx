@@ -168,13 +168,16 @@ export default function Home() {
       // for pre-checks that aren't real errors — only throw when there's no answer to show.
       if (!r.ok && !j?.answer) throw new Error(j?.error || j?.detail || `HTTP ${r.status}`);
       setResp(j);
-      getPostHog()?.capture('answer_received', {
-        source: j.meta?.source,
-        provider: j.meta?.provider,
-        urgent: j.meta?.urgent,
-        has_baby: !!selectedBabyId,
-        signed_in: !!user,
-      });
+      // Don't let a rate-limit notice count as a real answer in the funnel.
+      if (j.meta?.provider !== 'rate-limit') {
+        getPostHog()?.capture('answer_received', {
+          source: j.meta?.source,
+          provider: j.meta?.provider,
+          urgent: j.meta?.urgent,
+          has_baby: !!selectedBabyId,
+          signed_in: !!user,
+        });
+      }
       setTimeout(() => answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (err: any) {
       setError(err?.message || 'Something went wrong.');

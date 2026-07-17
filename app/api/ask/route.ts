@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimit, maybeSweep, clientIp } from '../../../lib/rateLimit';
 
 /** ------------ Types ------------ */
 type Faq = {
@@ -267,6 +268,28 @@ export async function POST(req: Request) {
     // Dil tespiti (query `?lang=tr|en` override eder)
     const lang: 'TR' | 'EN' = detectLang(question, req);
     const L = UI[lang];
+
+    // Rate limiting — protects against abuse / Gemini bill-shock.
+    // Real parents never approach these; a scripted flood trips instantly.
+    const ip = clientIp(req);
+    maybeSweep(60 * 60 * 1000);
+    const perMinute = rateLimit(`ask:min:${ip}`, { limit: 12, windowMs: 60_000 });
+    const perHour = perMinute.ok ? rateLimit(`ask:hr:${ip}`, { limit: 60, windowMs: 60 * 60_000 }) : perMinute;
+    if (!perMinute.ok || !perHour.ok) {
+      const retryAfterSec = !perMinute.ok ? perMinute.retryAfterSec : (perHour as { retryAfterSec: number }).retryAfterSec;
+      const msg = lang === 'TR'
+        ? 'Çok fazla istek gönderildi. Lütfen kısa bir süre bekleyip tekrar deneyin.'
+        : 'Too many requests. Please wait a moment and try again.';
+      return NextResponse.json(
+        {
+          answer: msg,
+          candidates: [],
+          disclaimer: L.disclaimer,
+          meta: { source: 'FALLBACK', llmUsed: false, llmError: null, provider: 'rate-limit', matchedFaqs: 0, urgent: false },
+        },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+      );
+    }
 
     if (!question?.trim()) {
       return NextResponse.json(
