@@ -4,7 +4,7 @@
 
 > ⚠️ BabyQ does not provide medical advice or diagnoses. It is a triage/information aid that always defers to professional care for urgent symptoms.
 
-**Live demo:** https://babyq.app/
+**Live demo:** https://babyq.app/ · **Product strategy:** [docs/PRODUCT_STRATEGY.md](docs/PRODUCT_STRATEGY.md)
 
 ---
 
@@ -136,10 +136,15 @@ lib/
 
 ## Roadmap / Known Limitations
 
+For the full product thinking — competitive analysis, a RICE-prioritized backlog, and a Now / Next / Later roadmap — see **[docs/PRODUCT_STRATEGY.md](docs/PRODUCT_STRATEGY.md)**.
+
+Known technical limitations:
+
 - No automated test suite yet (candidate: Vitest for `app/api/ask` decision logic — rules, urgency detection, language detection are pure functions and cheap to unit test).
 - No CI pipeline (lint/typecheck/build on PR).
 - Articles are static data, not DB-backed.
 - `openai` dependency is installed but unused (Gemini is the only active provider).
+- `/api/ask` is currently unauthenticated and un-rate-limited (tracked as P0 in the strategy doc).
 
 ## Disclaimer
 
