@@ -192,6 +192,7 @@ export default function Home() {
       setTimeout(() => answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (err: any) {
       setError(err?.message || 'Something went wrong.');
+      getPostHog()?.capture('client_error', { source: 'ask_flow', message: String(err?.message || err).slice(0, 300) });
     } finally {
       setLoading(false);
     }

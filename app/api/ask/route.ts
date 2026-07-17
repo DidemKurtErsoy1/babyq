@@ -445,6 +445,9 @@ export async function POST(req: Request) {
       meta: { source, llmUsed, llmError, provider, matchedFaqs: faqs.length, urgent }
     });
   } catch (e: any) {
+    // Structured, greppable log so server-side failures surface in Vercel's
+    // function logs (the server-side half of error monitoring).
+    console.error('[ask] unhandled error:', e?.message || e, e?.stack || '');
     return NextResponse.json(
       { error: 'Unprocessable request', detail: e?.message || 'unknown' },
       { status: 500 }

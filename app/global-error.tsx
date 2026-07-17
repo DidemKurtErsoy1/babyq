@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { getPostHog } from '../lib/posthog';
+
 export default function GlobalError({
   error,
   reset,
@@ -7,6 +10,15 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    getPostHog()?.capture('client_error', {
+      source: 'global-error',
+      message: error?.message?.slice(0, 300),
+      stack: error?.stack?.slice(0, 1000),
+      digest: error?.digest,
+    });
+  }, [error]);
+
   return (
     <html>
       <body style={{ margin: 0, fontFamily: 'sans-serif', background: '#FAF7F1', minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
