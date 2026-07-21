@@ -764,6 +764,41 @@ export default function Home() {
         )}
       </div>
 
+      {/* ═══════════════════════════════════════
+          WHY BABYQ — differentiation vs a generic chatbot
+      ═══════════════════════════════════════ */}
+      <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '64px 24px 72px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <h2 style={{ fontSize: 'clamp(24px, 3.4vw, 32px)', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 12px' }}>
+              {t('whyTitle')}
+            </h2>
+            <p style={{ fontSize: 16.5, color: 'var(--ink-secondary)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' }}>
+              {t('whySubtitle')}
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+            {[
+              { emoji: '🛟', title: t('whySafetyTitle'), body: t('whySafetyBody') },
+              { emoji: '👶', title: t('whyKnowsTitle'),  body: t('whyKnowsBody')  },
+              { emoji: '📚', title: t('whySourcesTitle'), body: t('whySourcesBody') },
+            ].map((c) => (
+              <div key={c.title} className="card" style={{ padding: '26px 24px' }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 24, background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', marginBottom: 16,
+                }}>
+                  {c.emoji}
+                </div>
+                <h3 style={{ fontSize: 17.5, fontWeight: 750, color: 'var(--ink)', margin: '0 0 8px' }}>{c.title}</h3>
+                <p style={{ fontSize: 14.5, color: 'var(--ink-secondary)', lineHeight: 1.6, margin: 0 }}>{c.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Responsive styles ── */}
       <style jsx>{`
         .hero-photo {
