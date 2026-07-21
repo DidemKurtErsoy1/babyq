@@ -139,13 +139,13 @@ lib/
 
 For the full product thinking — competitive analysis, a RICE-prioritized backlog, and a Now / Next / Later roadmap — see **[docs/PRODUCT_STRATEGY.md](docs/PRODUCT_STRATEGY.md)**.
 
+Testing & CI: the safety-critical decision logic (language detection, temperature parsing, urgency/emergency evaluation) is extracted to [`lib/askLogic.ts`](lib/askLogic.ts) and unit-tested with Vitest (`npm test`); GitHub Actions runs typecheck + test + build on every push and PR.
+
 Known technical limitations:
 
-- No automated test suite yet (candidate: Vitest for `app/api/ask` decision logic — rules, urgency detection, language detection are pure functions and cheap to unit test).
-- No CI pipeline (lint/typecheck/build on PR).
 - Articles are static data, not DB-backed.
 - `openai` dependency is installed but unused (Gemini is the only active provider).
-- `/api/ask` is currently unauthenticated and un-rate-limited (tracked as P0 in the strategy doc).
+- Vaccination-calendar reminders (push notifications) and developmental milestones are not built yet (v2).
 
 ## Disclaimer
 
