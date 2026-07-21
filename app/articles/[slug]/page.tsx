@@ -1,14 +1,54 @@
 // app/articles/[slug]/page.tsx
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { articles } from '../data';
+
+export function generateStaticParams() {
+  return articles.map((a) => ({ slug: a.slug }));
+}
+
+export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
+  const a = articles.find((x) => x.slug === params.slug);
+  if (!a) return {};
+  const url = `/articles/${a.slug}`;
+  return {
+    title: a.title,
+    description: a.excerpt,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'article',
+      url,
+      title: a.title,
+      description: a.excerpt,
+      publishedTime: a.updated,
+    },
+    twitter: { card: 'summary', title: a.title, description: a.excerpt },
+  };
+}
 
 export default function ArticlePage({ params }: { params: { slug: string } }) {
   const a = articles.find(x => x.slug === params.slug);
   if (!a) return notFound();
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: a.title,
+    description: a.excerpt,
+    dateModified: a.updated,
+    author: { '@type': 'Organization', name: a.author },
+    publisher: { '@type': 'Organization', name: 'BabyQ' },
+    mainEntityOfPage: `https://babyq.app/articles/${a.slug}`,
+    articleSection: a.category,
+  };
+
   return (
     <main className="page-shell">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '44px 20px 80px' }}>
         <nav style={{ marginBottom: 20 }}>
           <Link
