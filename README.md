@@ -31,6 +31,7 @@ Parents often turn to search engines at 2 a.m. with vague, anxious questions abo
   3. **Gemini fallback chain** (`gemini-flash-lite-latest` → `gemini-flash-latest` → `gemini-pro-latest`, Google's self-updating model aliases) generates a grounded answer using the top FAQ matches as context, with a shorter retry prompt if the first call fails.
 - **Bilingual (TR/EN)** — auto language detection from input text (with `?lang=` override), covering UI copy, prompts, and disclaimers.
 - **Auth & multi-baby profiles** — Supabase email/password auth; logged-in users can save more than one child, pick who a question is about on the Ask page, and get persisted question history (guests fall back to `localStorage`).
+- **Vaccination calendar** — computes the Turkey national childhood immunization schedule from the baby's birth date into a dated done / due / upcoming timeline (works for guests via a birth-date input); framed as an informational reminder with a link to the official source.
 - **Articles library** — 20 editorially-written reference articles across 7 categories (fever, feeding, sleep, respiratory, newborn care, safety, skin & bathing) with sources.
 - **Product analytics** — PostHog-instrumented activation funnel (`$pageview` → `ask_started` → `answer_received` → `signup_completed`).
 - **PWA** — installable, offline-capable via `manifest.json` + service worker.

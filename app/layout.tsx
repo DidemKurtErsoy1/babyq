@@ -49,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="links">
               <Link className="nav-btn" href="/">Ask</Link>
               <Link className="nav-btn" href="/articles">Articles</Link>
+              <Link className="nav-btn" href="/calendar">Calendar</Link>
               <Link className="nav-btn" href="/profile">Profile</Link>
               <Link className="nav-btn" href="/legal">Legal</Link>
               <NavClient />
