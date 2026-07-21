@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import SwRegister from "./sw-register";
 import NavClient from "./components/NavClient";
+import InstallPrompt from "./components/InstallPrompt";
 import Providers from "./providers";
 
 const inter = Inter({
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.variable}>
         <Providers />
         <SwRegister />
+        <InstallPrompt />
 
         {/* ── Header / Nav ── */}
         <header className="header">
