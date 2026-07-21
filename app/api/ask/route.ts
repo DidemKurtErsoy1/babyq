@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit, maybeSweep, clientIp } from '../../../lib/rateLimit';
+import { detectLangFromText, evaluateRisk, detectUrgent, emergencyNumber } from '../../../lib/askLogic';
 
 /** ------------ Types ------------ */
 type Faq = {
@@ -59,17 +60,6 @@ const UI = {
   }
 } as const;
 
-/** Resolve the local emergency number from a country code (Vercel geo header). */
-function emergencyNumber(country?: string | null): string {
-  const map: Record<string, string> = {
-    US: '911', CA: '911', MX: '911',
-    AU: '000', NZ: '111', GB: '999',
-  };
-  // 112 is the valid emergency number across the EU, Turkey, India and much
-  // of the world, so it's the safe default when we can't map the country.
-  return map[(country || '').toUpperCase()] || '112';
-}
-
 function localizedDisclaimer(lang: 'TR' | 'EN', emrg: string): string {
   return lang === 'TR'
     ? `Bu içerik tıbbi tavsiye değildir. Acil durumda ${emrg}'yi arayın veya en yakın sağlık kuruluşuna başvurun.`
@@ -83,69 +73,12 @@ function cut(s: string, max = 400) {
   return t.length > max ? t.slice(0, max) + '…' : t;
 }
 
-// Basit TR/EN dil tespiti (+ ?lang=tr|en override)
+// TR/EN detection with a ?lang=tr|en override; pure detection lives in lib.
 function detectLang(text: string, req: Request): 'TR' | 'EN' {
-  const url = new URL(req.url);
-  const override = url.searchParams.get('lang');
-  if (override?.toLowerCase() === 'tr') return 'TR';
-  if (override?.toLowerCase() === 'en') return 'EN';
-
-  const s = (text || '').toLowerCase();
-
-  // Turkish diacritics are the strongest signal, when present.
-  if (/[çğışöü]/.test(s)) return 'TR';
-
-  // Turkish present-continuous (-yor) and question-particle (mi/mı/mu/mü)
-  // suffixes are distinctive and survive even when diacritics are dropped
-  // (very common in fast, informal typing — e.g. "agliyor", "iyi mi").
-  if (/\w*(yor|iyor|uyor)\b/.test(s)) return 'TR';
-  if (/\b(mi|mı|mu|mü)\b/.test(s)) return 'TR';
-
-  // Common Turkish words, ASCII-folded so they still match without diacritics.
-  const trWords = [
-    'bugun','dun','yarin','simdi','cok','az','gibi','kadar','sonra','once',
-    'neden','niye','nasil','kac','degil','var','yok','oldu','olur','yapti',
-    'yedi','icti','uyudu','uyumadi','agladi','hasta','doktor','bebek',
-    'bebegim','cocugum','kizim','oglum','endiseliyim','yardim','lutfen',
-    'tesekkur','merhaba','selam','ay','ates','oksur','ishal','kus',
-    'bir','bu','su','ve','veya','ile','icin','ama','fakat',
-  ];
-  if (trWords.some(w => new RegExp(`\\b${w}\\b`).test(s))) return 'TR';
-
-  return 'EN';
-}
-
-function detectUrgent(ageMonths: number, text: string) {
-  const s = (text || '').toLowerCase();
-  const redWords = [
-    // TR
-    'nefes','solunum','zor','zorluk','morarma','mavi','havale','nöbet','nobet','bilinç','bayıl','tepkisiz','hırıltı','hirilti',
-    // EN
-    'breath','breathing','cyanosis','blue','seizure','convulsion','unconscious','unresponsive','wheezing'
-  ];
-  const hasRed = redWords.some(w => s.includes(w));
-  const hasFeverTR = /(?:38(\.|,)?\d?)/.test(s) || s.includes('38 derece');
-  const hasFeverEN = /(?:\b38(?:\.\d)?\b)/.test(s) || s.includes('38 c') || s.includes('38°');
-  const smallInfant = ageMonths >= 0 && ageMonths < 3 && (hasFeverTR || hasFeverEN);
-  return hasRed || smallInfant;
-}
-
-function extractTempC(q: string): number | null {
-  const s = (q || '').toLowerCase();
-  const m = s.match(/(\d{2}(?:[.,]\d)?)(?:\s?°\s?c| ?c| ?derece)?/i);
-  if (!m) return null;
-  const n = parseFloat(m[1].replace(',', '.'));
-  if (isNaN(n) || n < 30 || n > 45) return null;
-  return n;
-}
-
-function evaluateRisk(ageMonths: number, q: string) {
-  const t = extractTempC(q);
-  const emergency =
-    (t !== null && t >= 40) ||
-    (ageMonths < 3 && t !== null && t >= 38) ||
-    detectUrgent(ageMonths, q);
-  return { emergency, temp: t };
+  const override = new URL(req.url).searchParams.get('lang')?.toLowerCase();
+  if (override === 'tr') return 'TR';
+  if (override === 'en') return 'EN';
+  return detectLangFromText(text);
 }
 
 function extractKeywords(q: string) {
