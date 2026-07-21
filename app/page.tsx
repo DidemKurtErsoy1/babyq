@@ -796,6 +796,21 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Authority proof — honest credibility, not a vanity user count */}
+          <div style={{
+            marginTop: 34, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center',
+            gap: '10px 16px',
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-tertiary)', letterSpacing: 0.2 }}>
+              {t('whyAuthority')}
+            </span>
+            {['WHO', 'AAP', 'NHS'].map((org) => (
+              <span key={org} className="badge badge-neutral" style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.4 }}>
+                {org}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 

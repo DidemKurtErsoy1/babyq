@@ -104,6 +104,7 @@ const messages = {
     whyKnowsBody: "Age and profile go into every answer, so you're not re-explaining your child each time you ask.",
     whySourcesTitle: 'It shows its sources',
     whySourcesBody: 'Every answer points to the pediatric references behind it — so you can trust it, not just believe it.',
+    whyAuthority: 'Reference material drawn from',
   },
   tr: {
     askTitle: "BabyQ'ya Sor",
@@ -185,6 +186,7 @@ const messages = {
     whyKnowsBody: 'Yaş ve profil her yanıta girer; her seferinde çocuğunuzu baştan anlatmanız gerekmez.',
     whySourcesTitle: 'Kaynağını gösterir',
     whySourcesBody: 'Her yanıt, dayandığı pediatrik kaynakları gösterir — inanmak zorunda kalmazsınız, güvenirsiniz.',
+    whyAuthority: 'Referans alınan kaynaklar',
   },
 };
 
