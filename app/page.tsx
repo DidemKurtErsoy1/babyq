@@ -19,6 +19,7 @@ type ApiResp = {
     matchedFaqs?: number;
     urgent?: boolean;
     provider?: string;
+    model?: string | null;
   };
   error?: string;
   detail?: string;
@@ -126,8 +127,11 @@ export default function Home() {
   }, []);
 
   /* Core ask — takes the question text explicitly so callers (form submit,
-     one-tap example chips) don't race React state updates. */
-  async function runAsk(questionText: string) {
+     one-tap example chips) don't race React state updates. `via` records how
+     the ask was triggered so the activation funnel can separate organic (typed)
+     questions from one-tap example taps — most early traffic was the latter,
+     which otherwise inflates ask_started / answer_received. */
+  async function runAsk(questionText: string, via: 'typed' | 'example_chip' = 'typed') {
     const q = questionText.trim();
     if (!q) return;
 
@@ -168,8 +172,10 @@ export default function Home() {
       // Don't let a rate-limit notice count as a real answer in the funnel.
       if (j.meta?.provider !== 'rate-limit') {
         getPostHog()?.capture('answer_received', {
+          via,
           source: j.meta?.source,
           provider: j.meta?.provider,
+          model: j.meta?.model,
           urgent: j.meta?.urgent,
           has_baby: !!selectedBabyId,
           signed_in: !!user,
@@ -186,7 +192,7 @@ export default function Home() {
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    runAsk(question);
+    runAsk(question, 'typed');
   }
 
   /* One-tap example: fill the field, mark ask_started, and answer immediately */
@@ -196,7 +202,7 @@ export default function Home() {
       askStartedRef.current = true;
       getPostHog()?.capture('ask_started', { via: 'example_chip' });
     }
-    runAsk(text);
+    runAsk(text, 'example_chip');
   }
 
   /* Feedback */
@@ -525,7 +531,7 @@ export default function Home() {
                   setShowChips(true);
                   if (!askStartedRef.current) {
                     askStartedRef.current = true;
-                    getPostHog()?.capture('ask_started');
+                    getPostHog()?.capture('ask_started', { via: 'typed' });
                   }
                 }}
                 rows={5}
