@@ -79,6 +79,62 @@ export function evaluateRisk(ageMonths: number, q: string): { emergency: boolean
   return { emergency, temp: t };
 }
 
+/**
+ * Route between the two answer models: the fast one (flash-lite, ~1.2s, no
+ * hidden "thinking" phase) and the deep one (pro, ~13s, richer answers but far
+ * costlier). We only pay pro's latency/cost when it's likely to matter:
+ *
+ *  - urgent           → a red-flag-adjacent question; a careful answer is worth
+ *                       the wait more than raw speed is.
+ *  - long / multi-part / multi-symptom → genuinely involved, benefits from
+ *                       stronger reasoning.
+ *
+ * Short, single-topic questions take the fast path — flash-lite is already
+ * strong there and ~10x faster.
+ *
+ * NOTE We deliberately do NOT route on "did a FAQ match": the route's keyword
+ * overlap score is stopword-dominated noise (measured — a concerning umbilical-
+ * bleeding question scored higher than a plain constipation one), so it can't
+ * reliably tell an off-content ask from an on-content one. The signals below
+ * are the ones that actually track question difficulty.
+ */
+export function needsDeepModel(opts: {
+  question: string;
+  urgent: boolean;
+}): boolean {
+  const { question, urgent } = opts;
+  if (urgent) return true;
+
+  const q = (question || '').trim();
+  const ql = q.toLowerCase();
+
+  if (q.length >= 160) return true;
+
+  // Two or more question marks usually means the user stacked questions.
+  if ((q.match(/[?？]/g) || []).length >= 2) return true;
+
+  // Two or more distinct symptom concepts → more to reason about. Each group
+  // holds TR / accent-free / EN variants of ONE concept so a bilingual mention
+  // of the same symptom isn't double-counted. Stems are chosen to avoid
+  // false friends — e.g. teething ("diş") is intentionally left out because it
+  // is a substring of "endişe" (worry), which appears in a huge share of
+  // anxious-parent questions and would wrongly push them onto the slow path.
+  const symptomGroups = [
+    ['ateş', 'ates', 'fever'],
+    ['kus', 'vomit', 'istifra'],
+    ['ishal', 'diarr'],
+    ['öksür', 'oksur', 'cough', 'hırıl', 'hiril', 'wheez'],
+    ['döküntü', 'dokuntu', 'rash'],
+    ['nefes', 'solunum', 'breath'],
+    ['uyku', 'sleep'],
+    ['kabız', 'kabiz', 'constip'],
+  ];
+  const conceptsHit = symptomGroups.filter((g) => g.some((w) => ql.includes(w))).length;
+  if (conceptsHit >= 2) return true;
+
+  return false;
+}
+
 /** Local emergency number from a country code (falls back to 112). */
 export function emergencyNumber(country?: string | null): string {
   const map: Record<string, string> = {

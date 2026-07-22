@@ -1,11 +1,18 @@
 // app/api/ask/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// The DEEP model (pro) normally answers in ~13-20s; give the function room so
+// Vercel doesn't kill a legitimate deep answer at the default (~10s) limit.
+// Each model attempt is itself abort-bounded (see MODEL_TIMEOUT_MS), so the
+// route can't actually run this long — this is only the ceiling.
+// NB: the effective cap still depends on the Vercel plan; if it's lower, the
+// deep path simply times out per-attempt and falls back to the fast model.
+export const maxDuration = 30;
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit, maybeSweep, clientIp } from '../../../lib/rateLimit';
-import { detectLangFromText, evaluateRisk, detectUrgent, emergencyNumber } from '../../../lib/askLogic';
+import { detectLangFromText, evaluateRisk, detectUrgent, emergencyNumber, needsDeepModel } from '../../../lib/askLogic';
 
 /** ------------ Types ------------ */
 type Faq = {
@@ -40,7 +47,16 @@ const UI = {
       '🔺 İlk değerlendirme: Metne göre acil risk görünmüyor. Çocuğu gözlemleyin ve sıvı alımını sürdürün. Belirtiler artarsa sağlık profesyoneline başvurun.',
     disclaimer: DISCLAIMER_TR,
     sys:
-      'Pediatri asistanısın; tanı koyma ve ilaç/doz yazma. Türkçe, kısa ve sakin yaz. Çıktı biçimi: 1 kısa özet cümle; 3 madde pratik öneri; 1 madde “Ne zaman doktora?”. Acil belirti varsa başta ACİL uyarı ver. Toplam ≤90 kelime.'
+      'Pediatri asistanısın; tanı koyma, ilaç veya doz önerme. Türkçe, kısa ve sakin yaz. ' +
+      'Yanıtı HER ZAMAN şu sırada kur: önce tek cümlelik sakin bir özet (madde işareti yok); ' +
+      'sonra tam olarak üç öneri, her biri ayrı satırda "• " ile başlasın; ' +
+      'en son "Ne zaman doktora?" ile başlayan tek bir satır. ' +
+      'Tek madde işareti "• " olsun; hiçbir şeyi numaralandırma; başka simge kullanma. ' +
+      'Verilen FAQ bağlamı konuyla ilgiliyse yanıtını ona dayandır ve onunla çelişme. ' +
+      'ACİL uyarısını YALNIZCA gerçek acil kırmızı bayraklarda ekle (solunum güçlüğü, morarma, ' +
+      'havale/nöbet, tepkisizlik, çok küçük bebekte yüksek ateş) ve o satıra "🔺 ACİL:" ile başla. ' +
+      'Hafif/olağan belirtilerde (hafif öksürük, burun akıntısı, büyük bebekte hafif ateş) ' +
+      'ASLA alarm verme; sakince güven ver. Toplam ≤90 kelime.'
   },
   EN: {
     tooShort:
@@ -56,7 +72,16 @@ const UI = {
       '🔺 Initial assessment: No immediate red flag detected from your text. Monitor your child and keep up with fluids. If symptoms worsen or new red flags appear, seek medical care.',
     disclaimer: DISCLAIMER_EN,
     sys:
-      'You are a pediatric assistant; do NOT diagnose or prescribe. English only. Output format: one short summary sentence; three actionable bullet tips; one bullet “When to see a doctor?”. If urgent red flags exist, start with an URGENT warning. Keep total ≤90 words.'
+      'You are a pediatric assistant; do NOT diagnose, prescribe, or give doses. Write in English, short and calm. ' +
+      'ALWAYS order the reply as: first one calm summary sentence (no bullet); ' +
+      'then exactly three tips, each on its own line starting with "• "; ' +
+      'finally a single line starting with "When to see a doctor?". ' +
+      'Use "• " as the only bullet; do not number anything; use no other symbol. ' +
+      'If the provided FAQ context is relevant, ground your answer in it and do not contradict it. ' +
+      'Add an URGENT warning ONLY for true emergency red flags (breathing difficulty, cyanosis/blue ' +
+      'color, seizure, unresponsiveness, high fever in a very young infant), starting that line with "🔺 URGENT:". ' +
+      'For mild/common symptoms (mild cough, runny nose, mild fever in an older baby) NEVER raise alarm; ' +
+      'reassure calmly. Keep total ≤90 words.'
   }
 } as const;
 
@@ -107,34 +132,72 @@ function supabaseServer() {
 }
 
 /** ------------ Gemini (short, resilient) ------------ */
-async function geminiGenerate(prompt: string) {
+// The two answer models, chosen from a measured quality probe (2026-07):
+//   • FAST — flash-lite: no "thinking" phase → ~1.2s, cheap, already-strong
+//     answers. The default for simple, FAQ-grounded questions.
+//   • DEEP — pro: a "thinking" model with the richest answers but ~13s latency
+//     and far higher token cost. Reserved for complex / off-content questions.
+// `gemini-flash-latest` is deliberately unused: it's also a thinking model but
+// weaker than pro, and it burns the whole token budget on hidden reasoning
+// (measured 979 thought tokens → a truncated 41-token answer).
+// "-latest" aliases always point at Google's current recommended model, so this
+// doesn't need updating every time a dated model id is retired.
+const FAST_MODEL = 'gemini-flash-lite-latest';
+const DEEP_MODEL = 'gemini-pro-latest';
+
+// Per-attempt latency ceiling. The deep model normally answers in ~13-20s but
+// its "thinking" phase is unbounded (an 82s spike was measured), which would
+// blow past the function timeout and return nothing. Aborting at 24s and
+// falling through to the fast model guarantees the user still gets an answer.
+const MODEL_TIMEOUT_MS = 24_000;
+
+async function geminiGenerate(prompt: string, models: string[]) {
   const key = process.env.GEMINI_API_KEY!;
   if (!key) throw new Error('GEMINI_API_KEY yok');
 
-  // "-latest" aliases always point at Google's current recommended model,
-  // so this list doesn't need updating every time a dated model id is retired.
-  const MODELS = ['gemini-flash-lite-latest','gemini-flash-latest','gemini-pro-latest'];
-
   let lastError: string | null = null;
-  for (const model of MODELS) {
+  for (const model of models) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }]}],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 140, candidateCount: 1 }
-      })
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }]}],
+          // A high ceiling is safe: non-thinking models (flash-lite) stop as soon
+          // as the answer is done (~180 tokens) and never pad to the limit, while
+          // the thinking model (pro) needs the headroom so hidden reasoning
+          // (~1.1k tokens) doesn't crowd out the visible answer. The "≤90 words"
+          // prompt rule still governs the answer's actual length.
+          // NB: thinkingConfig/thinkingBudget is rejected by these -latest aliases
+          // (flash-lite/pro both 400 on it), so thinking can't be disabled here.
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 2048,
+            candidateCount: 1,
+          }
+        })
+      });
 
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      lastError = j?.error?.message || `HTTP ${res.status}`;
-      continue; // try the next model in the fallback chain
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        lastError = j?.error?.message || `HTTP ${res.status}`;
+        continue; // try the next model in the fallback chain
+      }
+      const parts = j?.candidates?.[0]?.content?.parts || [];
+      const text  = parts.map((p:any)=>p?.text).filter(Boolean).join('\n').trim();
+      if (text) return { text, model };
+    } catch (e: any) {
+      // AbortError (timed out) or a network failure — fall through to the next
+      // model rather than hanging or throwing out of the whole chain.
+      lastError = e?.name === 'AbortError' ? `timeout after ${MODEL_TIMEOUT_MS}ms` : String(e?.message || e);
+      continue;
+    } finally {
+      clearTimeout(timer);
     }
-    const parts = j?.candidates?.[0]?.content?.parts || [];
-    const text  = parts.map((p:any)=>p?.text).filter(Boolean).join('\n').trim();
-    if (text) return { text };
   }
 
   throw new Error(lastError || 'no_model_available_or_empty');
@@ -162,7 +225,8 @@ async function askGeminiSmart(
   urgent: boolean,
   lang: 'TR' | 'EN',
   sex: string | null,
-  babyName: string | null
+  babyName: string | null,
+  deep: boolean
 ) {
   const system = UI[lang].sys;
   const name = (babyName || '').trim().slice(0, 40);
@@ -196,19 +260,25 @@ async function askGeminiSmart(
           : '\n\nIMPORTANT: Possible urgent sign; start with URGENT warning.')
       : '');
 
+  // Hybrid routing: hard questions lead with the DEEP model, simple ones with
+  // the FAST model. Either way the other stays on as a fallback, so a transient
+  // failure of the first choice still yields an answer. The `deep` decision is
+  // made by the caller (it owns the FAQ match quality).
+  const chain = deep ? [DEEP_MODEL, FAST_MODEL] : [FAST_MODEL, DEEP_MODEL];
+
   try {
-    const r1 = await geminiGenerate(cut(`System:\n${system}\n\nUser:\n${user}`, 1600));
-    return { text: r1.text, llmUsed: true, llmError: null, provider: 'gemini' as const };
+    const r1 = await geminiGenerate(cut(`System:\n${system}\n\nUser:\n${user}`, 1600), chain);
+    return { text: r1.text, llmUsed: true, llmError: null, provider: 'gemini' as const, model: r1.model };
   } catch {
     const user2 =
       lang === 'TR'
         ? `${profile}. Soru: ${cut(question, 140)}.${personalTouch} ${urgent ? 'Acil olabilir; ACİL uyarı ile başla. ' : ''}En fazla 5 kısa satır.`
         : `${profile}. Question: ${cut(question, 140)}.${personalTouch} ${urgent ? 'Urgent possible; start with URGENT. ' : ''}Max 5 short lines.`;
     try {
-      const r2 = await geminiGenerate(cut(`System:\n${system}\n\nUser:\n${user2}`, 800));
-      return { text: r2.text, llmUsed: true, llmError: null, provider: 'gemini' as const };
+      const r2 = await geminiGenerate(cut(`System:\n${system}\n\nUser:\n${user2}`, 800), chain);
+      return { text: r2.text, llmUsed: true, llmError: null, provider: 'gemini' as const, model: r2.model };
     } catch (e2:any) {
-      return { text: null, llmUsed: false, llmError: String(e2?.message || e2), provider: 'gemini' as const };
+      return { text: null, llmUsed: false, llmError: String(e2?.message || e2), provider: 'gemini' as const, model: null };
     }
   }
 }
@@ -338,9 +408,12 @@ export async function POST(req: Request) {
         .map((f:any)=>{ delete f._score; return f as Faq; });
     } catch { faqs = []; }
 
+    // Hybrid model routing (fast vs deep) — see needsDeepModel.
+    const deep = needsDeepModel({ question, urgent });
+
     // LLM çağrısı
-    const { text: aiText, llmUsed, llmError, provider } =
-      await askGeminiSmart(ageMonths, question, faqs, urgent, lang, sex, babyName);
+    const { text: aiText, llmUsed, llmError, provider, model } =
+      await askGeminiSmart(ageMonths, question, faqs, urgent, lang, sex, babyName, deep);
 
     let source: 'AI' | 'FAQ' | 'FALLBACK';
     let answer: string;
@@ -375,7 +448,7 @@ export async function POST(req: Request) {
       answer,
       candidates: faqs,
       disclaimer,
-      meta: { source, llmUsed, llmError, provider, matchedFaqs: faqs.length, urgent }
+      meta: { source, llmUsed, llmError, provider, model: source === 'AI' ? model : null, matchedFaqs: faqs.length, urgent }
     });
   } catch (e: any) {
     // Structured, greppable log so server-side failures surface in Vercel's
