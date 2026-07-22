@@ -5,7 +5,6 @@ import {
   detectUrgent,
   evaluateRisk,
   emergencyNumber,
-  needsDeepModel,
 } from './askLogic';
 
 describe('detectLangFromText', () => {
@@ -94,39 +93,6 @@ describe('evaluateRisk', () => {
 
   it('is an emergency on a red-flag sign regardless of temperature', () => {
     expect(evaluateRisk(12, 'dudakları morardı').emergency).toBe(true);
-  });
-});
-
-describe('needsDeepModel', () => {
-  it('takes the FAST path for a short, single-topic question', () => {
-    expect(needsDeepModel({ question: 'Bebeğim kabız, ne yapabilirim?', urgent: false })).toBe(false);
-  });
-
-  it('goes DEEP for urgent (red-flag-adjacent) questions', () => {
-    expect(needsDeepModel({ question: 'nefes almakta zorlanıyor', urgent: true })).toBe(true);
-  });
-
-  it('goes DEEP for a long, detailed question', () => {
-    const long = 'Bebeğim '.repeat(30); // > 160 chars
-    expect(needsDeepModel({ question: long, urgent: false })).toBe(true);
-  });
-
-  it('goes DEEP for a stacked, multi-question prompt', () => {
-    expect(needsDeepModel({ question: 'Ateşi var mı bilmiyorum? Ne yapmalıyım? Doktora gitmeli miyim?', urgent: false })).toBe(true);
-  });
-
-  it('goes DEEP when two distinct symptoms are mentioned', () => {
-    expect(needsDeepModel({ question: 'hem ateşi hem de ishali var', urgent: false })).toBe(true);
-  });
-
-  it('does NOT double-count one symptom named in two languages', () => {
-    // "fever" + "ateş" are the same concept → still the FAST path.
-    expect(needsDeepModel({ question: 'has a fever, ateşi çıktı', urgent: false })).toBe(false);
-  });
-
-  it('does NOT treat "endişe" (worry) as a second symptom via the "diş" substring', () => {
-    // Regression: a single-symptom, worried question must stay on the FAST path.
-    expect(needsDeepModel({ question: '10 aylık bebekte hafif ateş var, endişelenmeli miyim?', urgent: false })).toBe(false);
   });
 });
 

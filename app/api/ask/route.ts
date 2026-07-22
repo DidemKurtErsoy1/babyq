@@ -1,18 +1,12 @@
 // app/api/ask/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-// The DEEP model (pro) normally answers in ~13-20s; give the function room so
-// Vercel doesn't kill a legitimate deep answer at the default (~10s) limit.
-// Each model attempt is itself abort-bounded (see MODEL_TIMEOUT_MS), so the
-// route can't actually run this long — this is only the ceiling.
-// NB: the effective cap still depends on the Vercel plan; if it's lower, the
-// deep path simply times out per-attempt and falls back to the fast model.
 export const maxDuration = 30;
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit, maybeSweep, clientIp } from '../../../lib/rateLimit';
-import { detectLangFromText, evaluateRisk, detectUrgent, emergencyNumber, needsDeepModel } from '../../../lib/askLogic';
+import { detectLangFromText, evaluateRisk, detectUrgent, emergencyNumber } from '../../../lib/askLogic';
 
 /** ------------ Types ------------ */
 type Faq = {
@@ -132,23 +126,22 @@ function supabaseServer() {
 }
 
 /** ------------ Gemini (short, resilient) ------------ */
-// The two answer models, chosen from a measured quality probe (2026-07):
-//   • FAST — flash-lite: no "thinking" phase → ~1.2s, cheap, already-strong
-//     answers. The default for simple, FAQ-grounded questions.
-//   • DEEP — pro: a "thinking" model with the richest answers but ~13s latency
-//     and far higher token cost. Reserved for complex / off-content questions.
-// `gemini-flash-latest` is deliberately unused: it's also a thinking model but
-// weaker than pro, and it burns the whole token budget on hidden reasoning
-// (measured 979 thought tokens → a truncated 41-token answer).
-// "-latest" aliases always point at Google's current recommended model, so this
-// doesn't need updating every time a dated model id is retired.
+// Single answer model, chosen from a measured quality probe (2026-07):
+// flash-lite has no "thinking" phase → ~1.2-1.4s, cheap, and its answers are
+// already strong (verified across a TR/EN battery incl. fever+diarrhea → ORS).
+//
+// A hybrid "deep" tier on gemini-pro-latest was tried and removed: pro is a
+// thinking model that, on the live route, NEVER actually served an answer —
+// measured 4/6 calls returned "high demand" errors and the 2 successes took
+// 26s and 38s, past the abort timeout — so it only added 7-24s of latency
+// before falling back to flash-lite anyway. gemini-flash-latest is also a
+// thinking model and truncates (979 thought tokens → 41-token answer), so it's
+// not a viable fallback either. flash-lite alone is the measured sweet spot.
+// "-latest" aliases track Google's current model, so this needs no dated ids.
 const FAST_MODEL = 'gemini-flash-lite-latest';
-const DEEP_MODEL = 'gemini-pro-latest';
 
-// Per-attempt latency ceiling. The deep model normally answers in ~13-20s but
-// its "thinking" phase is unbounded (an 82s spike was measured), which would
-// blow past the function timeout and return nothing. Aborting at 24s and
-// falling through to the fast model guarantees the user still gets an answer.
+// Per-attempt latency ceiling — a safety net against a hung request; flash-lite
+// normally answers in ~1.4s, so this is only ever hit on a network stall.
 const MODEL_TIMEOUT_MS = 24_000;
 
 async function geminiGenerate(prompt: string, models: string[]) {
@@ -225,8 +218,7 @@ async function askGeminiSmart(
   urgent: boolean,
   lang: 'TR' | 'EN',
   sex: string | null,
-  babyName: string | null,
-  deep: boolean
+  babyName: string | null
 ) {
   const system = UI[lang].sys;
   const name = (babyName || '').trim().slice(0, 40);
@@ -260,11 +252,7 @@ async function askGeminiSmart(
           : '\n\nIMPORTANT: Possible urgent sign; start with URGENT warning.')
       : '');
 
-  // Hybrid routing: hard questions lead with the DEEP model, simple ones with
-  // the FAST model. Either way the other stays on as a fallback, so a transient
-  // failure of the first choice still yields an answer. The `deep` decision is
-  // made by the caller (it owns the FAQ match quality).
-  const chain = deep ? [DEEP_MODEL, FAST_MODEL] : [FAST_MODEL, DEEP_MODEL];
+  const chain = [FAST_MODEL];
 
   try {
     const r1 = await geminiGenerate(cut(`System:\n${system}\n\nUser:\n${user}`, 1600), chain);
@@ -408,12 +396,9 @@ export async function POST(req: Request) {
         .map((f:any)=>{ delete f._score; return f as Faq; });
     } catch { faqs = []; }
 
-    // Hybrid model routing (fast vs deep) — see needsDeepModel.
-    const deep = needsDeepModel({ question, urgent });
-
     // LLM çağrısı
     const { text: aiText, llmUsed, llmError, provider, model } =
-      await askGeminiSmart(ageMonths, question, faqs, urgent, lang, sex, babyName, deep);
+      await askGeminiSmart(ageMonths, question, faqs, urgent, lang, sex, babyName);
 
     let source: 'AI' | 'FAQ' | 'FALLBACK';
     let answer: string;
