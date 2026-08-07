@@ -6,7 +6,8 @@ import { useAuth } from '../lib/useAuth';
 import { getSupabaseBrowser } from '../lib/supabaseBrowser';
 import { getPostHog } from '../lib/posthog';
 import { useI18n } from '../lib/useI18n';
-import { POPULAR_TOPICS } from './articles/popularTopics';
+import { POPULAR_TOPICS, topicHref } from './articles/popularTopics';
+import { trSlugForEn } from './articles/data.tr';
 
 /* ── Types ── */
 type ApiResp = {
@@ -848,7 +849,7 @@ export default function Home() {
               <a
                 key={topic.slug}
                 className="topic-link"
-                href={`/articles/${topic.slug}`}
+                href={topicHref(topic, lang, trSlugForEn(topic.slug))}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '13px 16px', borderRadius: 12,
@@ -864,7 +865,7 @@ export default function Home() {
           </div>
 
           <div style={{ textAlign: 'center', marginTop: 24 }}>
-            <a href="/articles" style={{
+            <a href={lang === 'tr' ? '/tr/makaleler' : '/articles'} style={{
               color: 'var(--accent-strong)', fontWeight: 700, fontSize: 15, textDecoration: 'none',
             }}>
               {t('topicsAll')}

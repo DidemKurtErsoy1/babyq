@@ -14,6 +14,15 @@
 
 export type PopularTopic = { slug: string; en: string; tr: string };
 
+/**
+ * Where a topic should link for a Turkish reader. Falls back to the English
+ * article when no translation exists yet, which is better than hiding the topic
+ * — the label is still Turkish, so the reader knows what they're getting.
+ */
+export function topicHref(topic: PopularTopic, lang: 'tr' | 'en', trSlug?: string): string {
+  return lang === 'tr' && trSlug ? `/tr/makaleler/${trSlug}` : `/articles/${topic.slug}`;
+}
+
 export const POPULAR_TOPICS: PopularTopic[] = [
   { slug: 'fever-basics-0-12m',                en: 'Baby fever: when to worry',       tr: 'Bebekte ateş: ne zaman doktora?' },
   { slug: 'sleep-0-6m-guide',                  en: 'Sleep guide (0–6 months)',        tr: '0–6 ay bebek uyku düzeni' },

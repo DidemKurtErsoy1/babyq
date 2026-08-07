@@ -1,31 +1,30 @@
-// app/articles/[slug]/page.tsx
+// app/tr/makaleler/[slug]/page.tsx
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { articles } from '../data';
-import { trSlugForEn } from '../data.tr';
+import { trArticles, getTrArticle } from '../../../articles/data.tr';
 
 export function generateStaticParams() {
-  return articles.map((a) => ({ slug: a.slug }));
+  return trArticles.map((a) => ({ slug: a.slug }));
 }
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const a = articles.find((x) => x.slug === params.slug);
+  const a = getTrArticle(params.slug);
   if (!a) return {};
-  const url = `/articles/${a.slug}`;
-  const trSlug = trSlugForEn(a.slug);
+  const url = `/tr/makaleler/${a.slug}`;
   return {
     title: a.title,
     description: a.excerpt,
     alternates: {
       canonical: url,
-      // hreflang only counts when both sides point at each other; the Turkish
-      // page declares this URL as its `en` alternate, so the pairing is
-      // emitted here too — but only for articles that actually have a
-      // translation, since pointing at a non-existent URL invalidates the set.
-      ...(trSlug
-        ? { languages: { en: url, tr: `/tr/makaleler/${trSlug}`, 'x-default': url } }
-        : {}),
+      // Declares this page and its English counterpart as the same content in
+      // two languages, so Google serves the Turkish URL to Turkish searchers
+      // instead of treating the pair as duplicates and picking one.
+      languages: {
+        tr: url,
+        en: `/articles/${a.enSlug}`,
+        'x-default': `/articles/${a.enSlug}`,
+      },
     },
     openGraph: {
       type: 'article',
@@ -33,16 +32,18 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
       title: a.title,
       description: a.excerpt,
       publishedTime: a.updated,
+      locale: 'tr_TR',
     },
-    twitter: { card: 'summary', title: a.title, description: a.excerpt },
+    twitter: { card: 'summary_large_image', title: a.title, description: a.excerpt },
   };
 }
 
-export default function ArticlePage({ params }: { params: { slug: string } }) {
-  const a = articles.find(x => x.slug === params.slug);
+export default function TrArticlePage({ params }: { params: { slug: string } }) {
+  const a = getTrArticle(params.slug);
   if (!a) return notFound();
 
-  const trSlug = trSlugForEn(a.slug);
+  const base = 'https://babyq.app';
+  const canonical = `${base}/tr/makaleler/${a.slug}`;
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -50,32 +51,28 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
     headline: a.title,
     description: a.excerpt,
     dateModified: a.updated,
+    inLanguage: 'tr',
     author: { '@type': 'Organization', name: a.author },
     publisher: { '@type': 'Organization', name: 'BabyQ' },
-    mainEntityOfPage: `https://babyq.app/articles/${a.slug}`,
+    mainEntityOfPage: canonical,
     articleSection: a.category,
   };
 
-  // Breadcrumbs let Google show "babyq.app › Articles › Fever" instead of a
-  // bare URL in results.
   const breadcrumbLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'BabyQ', item: 'https://babyq.app' },
-      { '@type': 'ListItem', position: 2, name: 'Articles', item: 'https://babyq.app/articles' },
-      { '@type': 'ListItem', position: 3, name: a.title, item: `https://babyq.app/articles/${a.slug}` },
+      { '@type': 'ListItem', position: 1, name: 'BabyQ', item: base },
+      { '@type': 'ListItem', position: 2, name: 'Makaleler', item: `${base}/tr/makaleler` },
+      { '@type': 'ListItem', position: 3, name: a.title, item: canonical },
     ],
   };
 
-  // The Q&A pairs already rendered on the page, declared as FAQPage so they're
-  // eligible for expandable FAQ results. Only emitted when the article actually
-  // has FAQs — marking up content that isn't visible on the page is a
-  // structured-data violation, not a shortcut.
   const faqLd = a.faqs?.length
     ? {
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
+        inLanguage: 'tr',
         mainEntity: a.faqs.map((f) => ({
           '@type': 'Question',
           name: f.q,
@@ -86,38 +83,35 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
 
   return (
     <main className="page-shell">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
-      />
+      {/* Only the root layout can render <html>, and it is hardcoded to lang="en".
+          Correcting it here runs during parse, before paint, so assistive tech and
+          renderers see Turkish. The authoritative signal for search engines is the
+          hreflang set emitted from generateMetadata above, not this. */}
+      <script dangerouslySetInnerHTML={{ __html: `document.documentElement.lang='tr'` }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       {faqLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
-        />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       )}
+
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '44px 20px 80px' }}>
         <nav style={{ marginBottom: 20 }}>
           <Link
-            href="/articles"
+            href="/tr/makaleler"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               fontSize: 14, fontWeight: 650, color: 'var(--accent-strong)',
             }}
           >
-            ← Back to Articles
+            ← Tüm makaleler
           </Link>
         </nav>
 
         <header style={{ marginBottom: 26 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-            <span aria-label="category" className="badge badge-accent">🏷️ {a.category}</span>
+            <span aria-label="kategori" className="badge badge-accent">🏷️ {a.category}</span>
             <span style={{ fontSize: 13, color: 'var(--ink-tertiary)' }}>
-              Last updated: {new Date(a.updated).toLocaleDateString()} · By {a.author}
+              Son güncelleme: {new Date(a.updated).toLocaleDateString('tr-TR')} · {a.author}
             </span>
           </div>
 
@@ -127,7 +121,6 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
           <p style={{ color: 'var(--ink-secondary)', fontSize: 16.5, lineHeight: 1.6, margin: 0 }}>{a.excerpt}</p>
         </header>
 
-        {/* Sections */}
         <article style={{ display: 'grid', gap: 16 }}>
           {a.sections.map((s, idx) => (
             <section key={idx} className="card" style={{ padding: '22px 24px' }}>
@@ -138,10 +131,9 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
             </section>
           ))}
 
-          {/* Mini FAQ */}
           {a.faqs?.length ? (
             <section className="card" style={{ padding: '22px 24px' }}>
-              <h2 style={{ fontSize: 18.5, fontWeight: 750, margin: '0 0 14px', color: 'var(--ink)' }}>FAQ</h2>
+              <h2 style={{ fontSize: 18.5, fontWeight: 750, margin: '0 0 14px', color: 'var(--ink)' }}>Sık sorulanlar</h2>
               <div style={{ display: 'grid', gap: 14 }}>
                 {a.faqs.map((f, i) => (
                   <div key={i} style={{ paddingBottom: i < a.faqs.length - 1 ? 14 : 0, borderBottom: i < a.faqs.length - 1 ? '1px solid var(--border)' : 'none' }}>
@@ -153,10 +145,9 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
             </section>
           ) : null}
 
-          {/* Resources */}
           {a.resources?.length ? (
             <section className="card" style={{ padding: '22px 24px' }}>
-              <h2 style={{ fontSize: 18.5, fontWeight: 750, margin: '0 0 12px', color: 'var(--ink)' }}>Resources</h2>
+              <h2 style={{ fontSize: 18.5, fontWeight: 750, margin: '0 0 12px', color: 'var(--ink)' }}>Kaynaklar</h2>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {a.resources.map((r, i) => (
                   <a key={i} href={r.url} target="_blank" rel="noreferrer" className="chip" style={{ fontSize: 13.5 }}>
@@ -167,14 +158,14 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
             </section>
           ) : null}
 
-          {trSlug && (
-            <p style={{ fontSize: 13.5, color: 'var(--ink-tertiary)', margin: '4px 0 0' }}>
-              Bu yazının Türkçesi:{' '}
-              <Link href={`/tr/makaleler/${trSlug}`} style={{ color: 'var(--accent-strong)', fontWeight: 600 }}>
-                Türkçe oku
-              </Link>
-            </p>
-          )}
+          {/* Link to the English original — helps readers who prefer it and gives
+              the hreflang pair a crawlable path in both directions. */}
+          <p style={{ fontSize: 13.5, color: 'var(--ink-tertiary)', margin: '4px 0 0' }}>
+            Bu yazının İngilizcesi:{' '}
+            <Link href={`/articles/${a.enSlug}`} style={{ color: 'var(--accent-strong)', fontWeight: 600 }}>
+              English version
+            </Link>
+          </p>
         </article>
       </div>
     </main>
