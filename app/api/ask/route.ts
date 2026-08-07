@@ -6,7 +6,7 @@ export const maxDuration = 30;
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit, maybeSweep, clientIp } from '../../../lib/rateLimit';
-import { detectLangFromText, evaluateRisk, detectUrgent, emergencyNumber } from '../../../lib/askLogic';
+import { detectLangFromText, evaluateRisk, detectUrgent, emergencyNumber, faqRelevance, FAQ_SOURCE_MIN_SCORE } from '../../../lib/askLogic';
 
 /** ------------ Types ------------ */
 type Faq = {
@@ -41,8 +41,15 @@ const UI = {
       '🔺 İlk değerlendirme: Metne göre acil risk görünmüyor. Çocuğu gözlemleyin ve sıvı alımını sürdürün. Belirtiler artarsa sağlık profesyoneline başvurun.',
     disclaimer: DISCLAIMER_TR,
     sys:
-      'Pediatri asistanısın; tanı koyma, ilaç veya doz önerme. Türkçe, kısa ve sakin yaz. ' +
-      'Yanıtı HER ZAMAN şu sırada kur: önce tek cümlelik sakin bir özet (madde işareti yok); ' +
+      'Pediatri ve ebeveynlik asistanısın; tanı koyma, ilaç veya doz önerme. Türkçe, kısa ve sakin yaz. ' +
+      'ÖNCE sorunun kime ait olduğunu belirle: ' +
+      '(a) Bebek/çocuk hakkındaysa yanıtı bebek için yaz. ' +
+      '(b) Ebeveynin KENDİSİ hakkındaysa ("ben ne zaman uyuyacağım", "çok yorgunum" gibi) ' +
+      'yanıtı EBEVEYNE yaz — dinlenme, destek paylaşımı, kendine bakım; bebeğin uyku güvenliğine kaydırma. ' +
+      '(c) Bebek/çocuk/ebeveynlik ile TAMAMEN ilgisizse (spor, siyaset, genel kültür): ' +
+      'yalnızca tek cümleyle kibarca kapsam dışı olduğunu söyle. Bu durumda madde YAZMA, ' +
+      '"Ne zaman doktora?" satırı EKLEME — uydurma tavsiye verme. ' +
+      '(a) ve (b) durumlarında yanıtı şu sırada kur: önce tek cümlelik sakin bir özet (madde işareti yok); ' +
       'sonra tam olarak üç öneri, her biri ayrı satırda "• " ile başlasın; ' +
       'en son "Ne zaman doktora?" ile başlayan tek bir satır. ' +
       'Tek madde işareti "• " olsun; hiçbir şeyi numaralandırma; başka simge kullanma. ' +
@@ -66,8 +73,15 @@ const UI = {
       '🔺 Initial assessment: No immediate red flag detected from your text. Monitor your child and keep up with fluids. If symptoms worsen or new red flags appear, seek medical care.',
     disclaimer: DISCLAIMER_EN,
     sys:
-      'You are a pediatric assistant; do NOT diagnose, prescribe, or give doses. Write in English, short and calm. ' +
-      'ALWAYS order the reply as: first one calm summary sentence (no bullet); ' +
+      'You are a pediatric and parenting assistant; do NOT diagnose, prescribe, or give doses. Write in English, short and calm. ' +
+      'FIRST decide who the question is about: ' +
+      '(a) About the baby/child → answer for the baby. ' +
+      "(b) About the PARENT themselves (\"when can I sleep\", \"I'm exhausted\") → answer for the PARENT — " +
+      "rest, sharing night duty, self-care; do NOT redirect to the baby's safe-sleep rules. " +
+      '(c) Completely unrelated to babies/children/parenting (sports, politics, trivia): ' +
+      'reply with ONE polite sentence saying it is outside your scope. In that case write NO bullets ' +
+      'and NO "When to see a doctor?" line — never invent advice. ' +
+      'For (a) and (b), order the reply as: first one calm summary sentence (no bullet); ' +
       'then exactly three tips, each on its own line starting with "• "; ' +
       'finally a single line starting with "When to see a doctor?". ' +
       'Use "• " as the only bullet; do not number anything; use no other symbol. ' +
@@ -98,25 +112,6 @@ function detectLang(text: string, req: Request): 'TR' | 'EN' {
   if (override === 'tr') return 'TR';
   if (override === 'en') return 'EN';
   return detectLangFromText(text);
-}
-
-function extractKeywords(q: string) {
-  const base = (q || '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-
-  const extras: string[] = [];
-  if (base.some(w => ['ateş','ates','fever'].includes(w))) extras.push('ateş');
-  if (base.some(w => ['öksürük','oksuruk','cough','wheeze','wheezing','hırıltı','hirilti','balgam','phlegm'].includes(w))) extras.push('öksürük');
-  if (base.some(w => ['ishal','diarrhea','diare'].includes(w))) extras.push('ishal');
-  if (base.some(w => ['kusma','vomit','vomiting','istifra'].includes(w))) extras.push('kusma');
-  if (base.some(w => ['kabız','constipation','kabizlik','hard stool'].includes(w))) extras.push('kabızlık');
-  if (base.some(w => ['uyku','sleep'].includes(w))) extras.push('uyku');
-  if (base.includes('ek') && base.some(w => ['gıda','gida','feeding','solid'].includes(w))) extras.push('ek gıda');
-
-  return Array.from(new Set([...base, ...extras])).slice(0, 12);
 }
 
 function supabaseServer() {
@@ -384,13 +379,11 @@ export async function POST(req: Request) {
         .gte('age_max', ageMonths)
         .limit(20);
 
-      const kws = extractKeywords(question);
+      // Only keep entries with a genuine topical overlap — an unrelated FAQ
+      // shown as a "source" is worse than showing none (see faqRelevance).
       faqs = (data || [])
-        .map((f: Faq) => {
-          const hay = `${f.category ?? ''} ${f.question} ${f.answer}`.toLowerCase();
-          const score = kws.reduce((acc, w) => (hay.includes(w) ? acc + 1 : acc), 0);
-          return { ...f, _score: score } as any;
-        })
+        .map((f: Faq) => ({ ...f, _score: faqRelevance(question, f) }) as any)
+        .filter((f: any) => f._score >= FAQ_SOURCE_MIN_SCORE)
         .sort((a:any,b:any)=> b._score - a._score)
         .slice(0, 2)
         .map((f:any)=>{ delete f._score; return f as Faq; });

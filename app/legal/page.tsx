@@ -36,7 +36,9 @@ export default function LegalPage() {
 
           <h2 style={{ fontSize: 21, fontWeight: 750, color: 'var(--ink)' }}>Contact</h2>
           <p style={{ lineHeight: 1.7, fontSize: 15.5, color: 'var(--ink-secondary)', margin: 0 }}>
-            hello@babyq.app (placeholder)
+            <a href="mailto:didemkurtersoy@gmail.com" style={{ color: 'var(--accent-strong)', fontWeight: 600 }}>
+              didemkurtersoy@gmail.com
+            </a>
           </p>
         </section>
       </div>

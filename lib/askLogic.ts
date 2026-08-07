@@ -79,6 +79,88 @@ export function evaluateRisk(ageMonths: number, q: string): { emergency: boolean
   return { emergency, temp: t };
 }
 
+/**
+ * Topic stems (TR incl. accent-free / EN) for the subjects our FAQ library
+ * covers. Stems (not whole words) so inflected Turkish still matches:
+ * "uyu" catches uyku / uyuyor / uyuyamıyor; "ates" catches ateşi / atesli.
+ */
+const TOPIC_STEMS: Record<string, string[]> = {
+  fever:        ['ateş', 'ates', 'fever', 'humma'],
+  sleep:        ['uyku', 'uyu', 'sleep', 'uyan', 'nap'],
+  cough:        ['öksür', 'oksur', 'cough', 'hırıl', 'hiril', 'wheez', 'balgam'],
+  diarrhea:     ['ishal', 'diyare', 'diarr'],
+  vomiting:     ['kusma', 'kusuyor', 'kustu', 'vomit', 'istifra'],
+  constipation: ['kabız', 'kabiz', 'constip', 'kaka yapam'],
+  feeding:      ['emzir', 'mama', 'beslen', 'süt', 'sut', 'feed', 'solid', 'gıda', 'gida', 'iştah', 'istah', 'appetite', 'yemek ye'],
+  rash:         ['döküntü', 'dokuntu', 'rash', 'kızarık', 'kizarik', 'pişik', 'pisik', 'eczema', 'egzama'],
+  breathing:    ['nefes', 'solunum', 'breath'],
+  teething:     ['diş çık', 'dis cik', 'teeth'],
+  vaccine:      ['aşı', 'asi', 'vaccin', 'immuniz'],
+};
+
+/** Which of our known topics a free-text question is about (may be empty). */
+export function detectTopics(text: string): string[] {
+  const s = (text || '').toLowerCase();
+  return Object.entries(TOPIC_STEMS)
+    .filter(([, stems]) => stems.some((st) => s.includes(st)))
+    .map(([topic]) => topic);
+}
+
+/**
+ * Relevance of one FAQ entry to a question, used to decide whether it may be
+ * shown to the user as a source.
+ *
+ * Why this exists: the previous scoring counted raw substring hits for EVERY
+ * word in the question, stopwords included — so "i" and "can" matched almost
+ * any entry and the top-2 were essentially random. That surfaced, for example,
+ * a fever FAQ as the "source" for "who won the world cup". Citing a source that
+ * did not inform the answer is worse than citing none, so scoring now requires
+ * a real topical overlap.
+ */
+export function faqRelevance(
+  question: string,
+  faq: { category?: string | null; question?: string | null; answer?: string | null }
+): number {
+  const qTopics = detectTopics(question);
+  const hay = `${faq.category ?? ''} ${faq.question ?? ''} ${faq.answer ?? ''}`.toLowerCase();
+
+  // What an entry is ABOUT (its category + title) counts far more than a topic
+  // merely mentioned in passing in its body — otherwise a cough entry whose
+  // answer happens to say "fever" gets cited as a source for a fever question.
+  const subject = `${faq.category ?? ''} ${faq.question ?? ''}`.toLowerCase();
+  const subjectTopics = detectTopics(subject);
+  const bodyTopics = detectTopics(`${faq.answer ?? ''}`);
+
+  let score = 0;
+  for (const t of qTopics) {
+    if (subjectTopics.includes(t)) score += 4;      // the entry is about this
+    else if (bodyTopics.includes(t)) score += 1;    // only mentioned in passing
+  }
+
+  // Meaningful (non-stopword, ≥4 chars) word overlap adds a little confidence,
+  // but can never on its own qualify an entry as a source.
+  const stop = new Set([
+    'bebek', 'bebeğim', 'bebegim', 'çocuk', 'cocuk', 'baby', 'child', 'kid',
+    'için', 'icin', 'ile', 'daha', 'çok', 'cok', 'nasıl', 'nasil', 'neden',
+    'olur', 'oldu', 'yapmalıyım', 'yapmaliyim', 'ne', 'mi', 'mı', 'var', 'yok',
+    'what', 'when', 'should', 'have', 'does', 'with', 'this', 'that', 'from',
+    'about', 'there', 'their', 'they', 'been', 'will', 'would', 'could',
+  ]);
+  const words = new Set(
+    (question || '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !stop.has(w))
+  );
+  for (const w of words) if (hay.includes(w)) score += 1;
+
+  return score;
+}
+
+/** Minimum relevance to cite an entry: it must be ABOUT a topic in the question. */
+export const FAQ_SOURCE_MIN_SCORE = 4;
+
 /** Local emergency number from a country code (falls back to 112). */
 export function emergencyNumber(country?: string | null): string {
   const map: Record<string, string> = {

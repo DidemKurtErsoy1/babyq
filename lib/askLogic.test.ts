@@ -5,6 +5,9 @@ import {
   detectUrgent,
   evaluateRisk,
   emergencyNumber,
+  faqRelevance,
+  detectTopics,
+  FAQ_SOURCE_MIN_SCORE,
 } from './askLogic';
 
 describe('detectLangFromText', () => {
@@ -93,6 +96,46 @@ describe('evaluateRisk', () => {
 
   it('is an emergency on a red-flag sign regardless of temperature', () => {
     expect(evaluateRisk(12, 'dudakları morardı').emergency).toBe(true);
+  });
+});
+
+describe('faqRelevance', () => {
+  const sleepFaq   = { category: 'sleep', question: '6–12 aylık bebek gece sık uyanıyor, normal mi?', answer: 'Bu yaşta gece uyanmaları sıktır.' };
+  const feverFaq   = { category: 'fever', question: 'Bebekte 38.2°C ateş olursa ne yapmalı?', answer: 'Sakin kalın ve ince giydirin.' };
+  const respFaq    = { category: 'respiratory', question: 'Öksürük ve burun akıntısı ne zaman doktora götürülmeli?', answer: 'Üç günden uzun süren öksürük.' };
+
+  it('scores a topically matching FAQ above the citation threshold', () => {
+    expect(faqRelevance('bebeğim gece sürekli uyanıyor', sleepFaq)).toBeGreaterThanOrEqual(FAQ_SOURCE_MIN_SCORE);
+  });
+
+  it('matches Turkish topics even when inflected/accent-free', () => {
+    // "uyuyabilecegim" must still hit the sleep topic via the "uyu" stem.
+    expect(faqRelevance('ben ne zaman uyuyabilecegim', sleepFaq)).toBeGreaterThanOrEqual(FAQ_SOURCE_MIN_SCORE);
+  });
+
+  it('keeps an unrelated FAQ below the threshold (the real bug)', () => {
+    // "who won the world cup" used to surface a fever FAQ as its "source".
+    expect(faqRelevance('who won the world cup', feverFaq)).toBeLessThan(FAQ_SOURCE_MIN_SCORE);
+    expect(faqRelevance('who won the world cup', respFaq)).toBeLessThan(FAQ_SOURCE_MIN_SCORE);
+  });
+
+  it('does not let a sleep question cite a respiratory FAQ', () => {
+    expect(faqRelevance('bebeğim gece uyumuyor', respFaq)).toBeLessThan(FAQ_SOURCE_MIN_SCORE);
+  });
+
+  it('is not fooled by stopwords alone', () => {
+    // Single letters / common words must not accumulate a citable score.
+    expect(faqRelevance('i can do this', feverFaq)).toBeLessThan(FAQ_SOURCE_MIN_SCORE);
+  });
+});
+
+describe('detectTopics', () => {
+  it('finds the topic in an English question', () => {
+    expect(detectTopics('my baby has a fever')).toContain('fever');
+  });
+
+  it('finds no topic in an off-scope question', () => {
+    expect(detectTopics('who won the world cup')).toHaveLength(0);
   });
 });
 
