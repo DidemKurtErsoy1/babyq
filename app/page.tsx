@@ -6,6 +6,7 @@ import { useAuth } from '../lib/useAuth';
 import { getSupabaseBrowser } from '../lib/supabaseBrowser';
 import { getPostHog } from '../lib/posthog';
 import { useI18n } from '../lib/useI18n';
+import { POPULAR_TOPICS } from './articles/popularTopics';
 
 /* ── Types ── */
 type ApiResp = {
@@ -54,7 +55,7 @@ function monthsBetween(birthISO: string) {
 /* ── Component ── */
 export default function Home() {
   const { user } = useAuth();
-  const { t, chips } = useI18n();
+  const { t, lang, chips } = useI18n();
 
   const [age,       setAge]       = useState<string>('7');
   const [sex,       setSex]       = useState<'female' | 'male' | 'unknown'>('unknown');
@@ -820,8 +821,70 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── Popular topics ──
+          Real navigation for parents, and the only path search engines have
+          from the homepage into the 20 article pages. Plain <a> (not next/link)
+          keeps these as crawlable hrefs with no JS dependency. */}
+      <section style={{ padding: '0 20px 72px' }}>
+        <div style={{ maxWidth: 1040, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 26, fontWeight: 800, color: 'var(--ink)', margin: '0 0 8px',
+            letterSpacing: '-0.02em', textAlign: 'center',
+          }}>
+            {t('topicsTitle')}
+          </h2>
+          <p style={{
+            fontSize: 15, color: 'var(--ink-secondary)', margin: '0 auto 26px',
+            textAlign: 'center', maxWidth: 520, lineHeight: 1.6,
+          }}>
+            {t('topicsSubtitle')}
+          </p>
+
+          <div style={{
+            display: 'grid', gap: 10,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          }}>
+            {POPULAR_TOPICS.map((topic) => (
+              <a
+                key={topic.slug}
+                className="topic-link"
+                href={`/articles/${topic.slug}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '13px 16px', borderRadius: 12,
+                  border: '1px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--ink)', fontSize: 14.5, fontWeight: 600,
+                  textDecoration: 'none', lineHeight: 1.4,
+                }}
+              >
+                <span aria-hidden style={{ color: 'var(--accent)', fontWeight: 700 }}>›</span>
+                {lang === 'tr' ? topic.tr : topic.en}
+              </a>
+            ))}
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <a href="/articles" style={{
+              color: 'var(--accent-strong)', fontWeight: 700, fontSize: 15, textDecoration: 'none',
+            }}>
+              {t('topicsAll')}
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* ── Responsive styles ── */}
       <style jsx>{`
+        /* Hover lives here rather than inline, since inline styles can't
+           express :hover — the transition is only meaningful with it. */
+        .topic-link {
+          transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+        .topic-link:hover {
+          border-color: var(--accent) !important;
+          box-shadow: var(--shadow-sm);
+          transform: translateY(-1px);
+        }
         .hero-photo {
           flex-shrink: 0;
           width: 340px;

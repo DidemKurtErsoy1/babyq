@@ -105,6 +105,9 @@ const messages = {
     whySourcesTitle: 'It shows its sources',
     whySourcesBody: 'Every answer points to the pediatric references behind it — so you can trust it, not just believe it.',
     whyAuthority: 'Reference material drawn from',
+    topicsTitle: 'Popular topics parents ask about',
+    topicsSubtitle: 'Short, source-backed guides for the questions that come up most.',
+    topicsAll: 'See all articles →',
   },
   tr: {
     askTitle: "BabyQ'ya Sor",
@@ -187,6 +190,9 @@ const messages = {
     whySourcesTitle: 'Kaynağını gösterir',
     whySourcesBody: 'Her yanıt, dayandığı pediatrik kaynakları gösterir — inanmak zorunda kalmazsınız, güvenirsiniz.',
     whyAuthority: 'Referans alınan kaynaklar',
+    topicsTitle: 'Ebeveynlerin en çok sorduğu konular',
+    topicsSubtitle: 'En sık gelen sorular için kısa, kaynaklı rehberler.',
+    topicsAll: 'Tüm makaleler →',
   },
 };
 

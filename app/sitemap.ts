@@ -9,7 +9,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/articles`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${BASE}/calendar`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE}/legal`, changeFrequency: 'yearly', priority: 0.3 },
-    { url: `${BASE}/login`, changeFrequency: 'yearly', priority: 0.3 },
+    // /login, /profile and /history are intentionally absent — robots.ts
+    // disallows them, and listing a disallowed URL in the sitemap is a
+    // contradiction Search Console reports as an error.
   ];
 
   const articleRoutes: MetadataRoute.Sitemap = articles.map((a) => ({

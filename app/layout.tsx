@@ -38,13 +38,14 @@ export const metadata: Metadata = {
     url: "https://babyq.app",
     title: "BabyQ — Instant, safe answers for your baby's health",
     description: DESCRIPTION,
-    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "BabyQ" }],
+    // No `images` here on purpose: app/opengraph-image.tsx supplies the 1200×630
+    // card via the file convention. Setting images explicitly would override it
+    // and put the square icon back into link previews.
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "BabyQ — Instant, safe answers for your baby's health",
     description: DESCRIPTION,
-    images: ["/icon-512.png"],
   },
   icons: {
     icon: [
@@ -67,6 +68,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={inter.variable}>
+        {/* Site-level identity for search engines: ties every page to one named
+            publisher, which is what "who is behind this health content?" checks
+            look for. No SearchAction is declared — BabyQ has no query-param
+            search URL, and claiming one that 404s is worse than claiming none. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": "https://babyq.app/#org",
+                  name: "BabyQ",
+                  url: "https://babyq.app",
+                  logo: "https://babyq.app/icon-512.png",
+                  email: "didemkurtersoy@gmail.com",
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": "https://babyq.app/#website",
+                  name: "BabyQ",
+                  url: "https://babyq.app",
+                  description: DESCRIPTION,
+                  publisher: { "@id": "https://babyq.app/#org" },
+                  inLanguage: ["tr", "en"],
+                },
+              ],
+            }),
+          }}
+        />
         <Providers />
         <SwRegister />
         <InstallPrompt />

@@ -43,12 +43,50 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
     articleSection: a.category,
   };
 
+  // Breadcrumbs let Google show "babyq.app › Articles › Fever" instead of a
+  // bare URL in results.
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'BabyQ', item: 'https://babyq.app' },
+      { '@type': 'ListItem', position: 2, name: 'Articles', item: 'https://babyq.app/articles' },
+      { '@type': 'ListItem', position: 3, name: a.title, item: `https://babyq.app/articles/${a.slug}` },
+    ],
+  };
+
+  // The Q&A pairs already rendered on the page, declared as FAQPage so they're
+  // eligible for expandable FAQ results. Only emitted when the article actually
+  // has FAQs — marking up content that isn't visible on the page is a
+  // structured-data violation, not a shortcut.
+  const faqLd = a.faqs?.length
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: a.faqs.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a },
+        })),
+      }
+    : null;
+
   return (
     <main className="page-shell">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
+      {faqLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        />
+      )}
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '44px 20px 80px' }}>
         <nav style={{ marginBottom: 20 }}>
           <Link
