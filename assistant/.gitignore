@@ -1,0 +1,13 @@
+# The repo root .gitignore anchors its rules with a leading slash (/node_modules),
+# so they only cover the root app. This file repeats them for the assistant app.
+
+node_modules/
+.next/
+out/
+build/
+coverage/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+.env*
+npm-debug.log*
