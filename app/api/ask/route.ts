@@ -292,6 +292,10 @@ export async function POST(req: Request) {
     }
     if (Number.isNaN(ageMonths) || ageMonths < 0) ageMonths = 0;
 
+    // Eval runs (evals/emergency/run.ts) send this header so synthetic
+    // questions don't pollute the questions table / usage stats.
+    const isEval = req.headers.get('x-babyq-eval') === '1';
+
     // Dil tespiti (query `?lang=tr|en` override eder)
     const lang: 'TR' | 'EN' = detectLang(question, req);
     const L = UI[lang];
@@ -343,7 +347,7 @@ export async function POST(req: Request) {
     const risk = evaluateRisk(ageMonths, question);
     if (risk.emergency) {
       const urgentAnswer = `${L.urgentTitle}\n${L.urgentBody(risk.temp, emrg)}`;
-      if (userId) {
+      if (userId && !isEval) {
         try {
           const supa = supabaseServer();
           await supa.from('questions').insert({
@@ -407,8 +411,8 @@ export async function POST(req: Request) {
       answer = UI[lang].fallback;
     }
 
-    // Soruyu kaydet (best-effort)
-    try {
+    // Soruyu kaydet (best-effort; eval istekleri kaydedilmez)
+    if (!isEval) try {
       const supa = supabaseServer();
       await supa.from('questions').insert({
         user_id: userId,
