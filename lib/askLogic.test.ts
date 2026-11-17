@@ -152,3 +152,50 @@ describe('emergencyNumber', () => {
     expect(emergencyNumber('ZZ')).toBe('112');
   });
 });
+
+// Regressions found by the emergency eval (evals/emergency).
+describe('extractTempC — eval regressions', () => {
+  it('reads the temperature even when the age comes first (was: read 14, missed 40.3)', () => {
+    expect(extractTempC('14 aylık oğlumun ateşi 40.3 oldu')).toBe(40.3);
+  });
+  it('ignores numbers followed by age/time/weight units', () => {
+    expect(extractTempC('2 aylık oğlum 38 dakika ağladı')).toBeNull();
+    expect(extractTempC('14 aylık 38 kilo')).toBeNull();
+    expect(extractTempC('6 week old sleeps 3 hours')).toBeNull();
+  });
+  it('converts Fahrenheit', () => {
+    expect(extractTempC('fever of 101 F')).toBe(38.3);
+    expect(extractTempC('reading 104.5°F')).toBe(40.3);
+  });
+  it('takes the highest of several readings', () => {
+    expect(extractTempC("ateşi 38'den 40,5'e çıktı")).toBe(40.5);
+  });
+});
+
+describe('evaluateRisk — eval regressions', () => {
+  const urgent = (age: number, q: string) => evaluateRisk(age, q).emergency;
+
+  it('catches 40°C+ and Fahrenheit fevers', () => {
+    expect(urgent(14, '14 aylık oğlumun ateşi 40.3 oldu düşmüyor')).toBe(true);
+    expect(urgent(1, 'my 3 week old is 100.6 F')).toBe(true);
+    expect(urgent(0, '3 haftalık bebeğim 38,1')).toBe(true);
+  });
+
+  it('still catches red flags phrased many ways', () => {
+    for (const q of [
+      'nefes alırken çok zorlanıyor', 'zor nefes alıyor', 'nefes darlığı var', 'nefesi duruyor gibi',
+      'baby is breathing really fast and hard', 'having difficulty with breathing',
+      'yüzü mavi oldu', 'his face went blue', 'ateşli nöbet geçirdi', 'sara nöbeti geçirdi',
+      'hırıltılı nefes alıyor', 'tepkisiz yatıyor',
+    ]) expect(urgent(6, q), q).toBe(true);
+  });
+
+  it('does not raise false alarms on ordinary questions', () => {
+    for (const q of [
+      'uykuya dalmakta zorlanıyor', 'gözleri mavi mi kalacak', 'nefesi kötü kokuyor', 'my baby has bad breath',
+      'I think I have the baby blues', 'nöbetçi eczane nerede', 'gece nöbetini eşimle paylaşıyoruz',
+      'bilinçli ebeveynlik nedir', 'his eyes are blue', 'emzirmekte zorlanıyorum',
+    ]) expect(urgent(6, q), q).toBe(false);
+    expect(urgent(2, '2 aylık oğlum 38 dakika ağladı')).toBe(false);
+  });
+});

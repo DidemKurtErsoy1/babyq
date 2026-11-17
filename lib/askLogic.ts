@@ -37,30 +37,104 @@ export function detectLangFromText(text: string): Lang {
   return 'EN';
 }
 
-/** Parse a plausible body temperature (°C) from free text, or null. */
+// Words that, right after a number, mean it is NOT a temperature
+// ("14 aylık", "38 dakika", "6 week old", "3 times"...).
+const NON_TEMP_UNIT =
+  /^\s*['’]?\s*(ay|aylık|aylik|hafta|haftalık|haftalik|gün|gun|günlük|gunluk|yaş|yas|dakika|dk|saat|saniye|sn|kez|kere|defa|kilo|kg|gr|gram|cm|ml|mg|months?|mo\b|weeks?|wk|days?|years?|yrs?|y\/o|yo\b|minutes?|mins?|hours?|hrs?|h\b|seconds?|secs?|times|lbs?|oz|%)/i;
+
+/**
+ * Parse a plausible body temperature (°C) from free text, or null.
+ *
+ * Scans EVERY number (not just the first: "14 aylık oğlumun ateşi 40.3" used
+ * to read 14 and miss 40.3), skips numbers followed by an age/time/count unit,
+ * and converts Fahrenheit when marked (°F, F, fahrenheit). When several
+ * temperatures appear ("38'den 40.3'e çıktı") the highest wins — for triage,
+ * the worst reading is the one that matters.
+ */
 export function extractTempC(q: string): number | null {
   const s = (q || '').toLowerCase();
-  const m = s.match(/(\d{2}(?:[.,]\d)?)(?:\s?°\s?c| ?c| ?derece)?/i);
-  if (!m) return null;
-  const n = parseFloat(m[1].replace(',', '.'));
-  if (isNaN(n) || n < 30 || n > 45) return null;
-  return n;
+  const re = /(\d{2,3}(?:[.,]\d+)?)\s*(°\s*[cf]\b|°|derece|celsius|fahrenheit|[cf]\b)?/gi;
+  let best: number | null = null;
+  for (const m of s.matchAll(re)) {
+    // Part of a longer number (e.g. "2024", a phone number)? Skip.
+    const before = s[m.index! - 1];
+    if (before && /[\d.,]/.test(before)) continue;
+    const v = parseFloat(m[1].replace(',', '.'));
+    const unit = (m[2] || '').replace(/\s/g, '');
+    const after = s.slice(m.index! + m[0].length);
+    if (!unit && NON_TEMP_UNIT.test(after)) continue;
+
+    const isF = unit === '°f' || unit === 'f' || unit === 'fahrenheit';
+    let c: number;
+    if (isF) {
+      if (v < 93 || v > 113) continue;
+      c = Math.round(((v - 32) * 5) / 9 * 10) / 10;
+    } else {
+      // A bare number must look like a body temperature; with an explicit
+      // °C/derece marker we keep the original, wider window.
+      if (unit ? v < 30 || v > 45 : v < 34 || v > 43) continue;
+      c = v;
+    }
+    if (best === null || c > best) best = c;
+  }
+  return best;
 }
+
+/**
+ * Red-flag phrases. Deliberately PHRASES, not single words: the old single
+ * words caused false alarms on ordinary questions — "zor" (uykuya dalmakta
+ * zorlanıyor), "mavi" (mavi gözler), "nefes" (nefesi kokuyor), "breath"
+ * (bad breath), "blue" (baby blues), "nöbet" (nöbetçi eczane, gece nöbeti),
+ * "bilinç" (bilinçli ebeveyn). Stems still cover Turkish inflection.
+ */
+const RED_FLAGS = [
+  // TR — breathing
+  'nefes almakta zor', 'nefes almakta güçlük', 'nefes almakta guclu', 'nefes alamı', 'nefes alami',
+  'nefes almıyor', 'nefes almiyor', 'nefes darlığı', 'nefes darligi', 'nefesi daral', 'nefesi kesil',
+  'zor nefes', 'nefes nefese', 'solunum güçlüğü', 'solunum guclugu', 'solunum zorluğu', 'solunum zorlugu',
+  'solunum sıkıntı', 'solunum sikinti', 'hırıltı', 'hirilti',
+  // TR — colour (cyanosis)
+  'morar', 'mosmor', 'mavi oldu', 'mavileş', 'maviles', 'dudakları mavi', 'dudaklari mavi',
+  // TR — seizure / consciousness
+  'havale', 'nöbet geçir', 'nobet gecir', 'kasılma nöbet', 'bayıl', 'bayil', 'tepkisiz',
+  'bilincini kayb', 'bilinci kapa', 'bilinç kayb', 'bilinc kayb',
+  // EN — breathing
+  'trouble breathing', 'difficulty breathing', 'hard to breathe', 'struggling to breathe',
+  "can't breathe", 'cant breathe', 'cannot breathe', 'not breathing', 'stopped breathing',
+  'short of breath', 'shortness of breath', 'labored breathing', 'laboured breathing',
+  'with every breath', 'with each breath', 'gasping', 'wheezing',
+  // EN — colour
+  'cyanosis', 'turned blue', 'turning blue', 'blue lips', 'lips are blue', 'lips look blue', 'lips turned blue',
+  // EN — seizure / consciousness
+  'seizure', 'convulsion', 'unconscious', 'unresponsive', 'passed out', 'fainted',
+];
+
+/**
+ * Looser patterns that catch the many ways parents describe the same signs
+ * ("nefes alırken çok zorlanıyor", "breathing really fast and hard") without
+ * going back to bare single words.
+ */
+const RED_FLAG_PATTERNS: RegExp[] = [
+  // breathing word, then (within a few words) a difficulty word — TR
+  /(nefes|solu)\S*[^.!?\n]{0,30}(zor|güçl|gucl|darl|daral|sıkış|sikis|sıkıntı|sikinti|kesil|duruyor|durdu|hızlı|hizli)/,
+  /(zor|güçlükle|guclukle|hızlı hızlı|hizli hizli)\s+(nefes|solu)/,
+  // EN
+  /breath\S*[^.!?\n]{0,30}(hard|difficult|struggl|labou?r|very fast|really fast|rapid)/,
+  /(trouble|difficulty|struggling|hard time|problems?)\s+(\w+\s+){0,2}breath/,
+  // colour
+  /(yüzü|yuzu|dudak\S*|dudaklar\S*|derisi|teni)\s+(\S+\s+)?(mavi|mor\b|morumsu|gri)/,
+  /\b(is|looks?|went|turn\S*|going|face|lips)\s+(\w+\s+)?(blue|grey|gray)\b/,
+  // named seizure types
+  /(sara|epilepsi|ateşli|atesli|febril)\s+(nöbet|nobet)/,
+];
 
 /** True when the text contains a red-flag sign, or a young infant + fever. */
 export function detectUrgent(ageMonths: number, text: string): boolean {
   const s = (text || '').toLowerCase();
-  const redWords = [
-    // TR — use stems so verb forms are caught too (e.g. "morar" → morarma,
-    // morardı, morarıyor; cyanosis is a critical sign we must not miss).
-    'nefes','solunum','zor','zorluk','morar','mosmor','mavi','havale','nöbet','nobet','bilinç','bayıl','tepkisiz','hırıltı','hirilti',
-    // EN
-    'breath','breathing','cyanosis','blue','seizure','convulsion','unconscious','unresponsive','wheezing',
-  ];
-  const hasRed = redWords.some((w) => s.includes(w));
-  const hasFeverTR = /(?:38(\.|,)?\d?)/.test(s) || s.includes('38 derece');
-  const hasFeverEN = /(?:\b38(?:\.\d)?\b)/.test(s) || s.includes('38 c') || s.includes('38°');
-  const smallInfant = ageMonths >= 0 && ageMonths < 3 && (hasFeverTR || hasFeverEN);
+  const hasRed = RED_FLAGS.some((w) => s.includes(w)) || RED_FLAG_PATTERNS.some((r) => r.test(s));
+  // Use the real temperature parser: the old /38/ regex fired on "38 dakika".
+  const t = extractTempC(s);
+  const smallInfant = ageMonths >= 0 && ageMonths < 3 && t !== null && t >= 38;
   return hasRed || smallInfant;
 }
 
